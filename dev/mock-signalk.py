@@ -56,6 +56,10 @@ SCALARS = {
     "environment.wind.speedApparent":  9.2,     # m/s
     # Depth
     "environment.depth.belowKeel":    38.0,     # m (deep water in the Pass)
+    # Atmosphere — YDBC-05 N2K barometer (Phase 1 hardware; mocked here)
+    "environment.outside.pressure":   101000.0, # Pa (1010.0 hPa — slight low, typical PNW low-pressure system)
+    "environment.outside.temperature": 286.15,  # K (13°C)
+    "environment.outside.humidity":    0.78,    # ratio (78%)
 }
 
 POSITION = {"longitude": -123.0520, "latitude": 48.7621}
@@ -169,6 +173,7 @@ def main() -> None:
     print(f"  Battery:   {int(BATTERY_HOUSE['stateOfCharge']*100)}% SOC  "
           f"{BATTERY_HOUSE['voltage']}V  {BATTERY_HOUSE['current']}A")
     print(f"  Route:     Victoria → Bedwell Harbour (4 waypoints)")
+    print(f"  Pressure:  1010.0 hPa (slight low, atmosphere mocked via YDBC-05 paths)")
     print()
     print(f"  SIGNALK_URL=http://localhost:{PORT}")
     print("  Ctrl+C to stop")

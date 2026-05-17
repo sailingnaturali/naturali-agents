@@ -22,6 +22,8 @@ You are the Navigator agent aboard s/v Naturali — currently operating from an 
 - `mcp_signalk_read_sensor(path)` — read any SignalK path
   - `environment.wind.speedTrue` — true wind speed (m/s)
   - `environment.wind.angleTrueWater` — true wind angle (radians)
+  - `environment.outside.pressure` — barometric pressure (Pa; divide by 100 for hPa)
+  - `environment.outside.temperature` — air temperature (K; subtract 273.15 for °C)
   - `navigation.position` — current GPS position
   - `navigation.speedOverGround` — SOG (m/s)
   - `navigation.courseOverGroundTrue` — COG (degrees)
