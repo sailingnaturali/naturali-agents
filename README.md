@@ -1,0 +1,40 @@
+# naturali-agents
+
+Hermes Agent configs and prompts for the Naturali boat agent system.
+
+Part of the [Naturali](https://sailingnaturali.com) open-source boat agent stack.
+
+## Agents
+
+| Agent | Status | Role |
+|-------|--------|------|
+| Navigator | Phase 0 | Routing, weather, conditions, battery-aware passage planning |
+| Engineer | Phase 0.5 | Vessel systems, anomaly detection, vessel knowledge RAG |
+| Logbook | Phase 0.5 | Sea-day capture, end-of-day summaries, USCG/TC form export |
+
+## Phase 0 scope
+
+Navigator only. Hermes loaded with the `signalk-mcp` MCP server. Single-prompt agent, no subagents.
+
+## Architecture
+
+```
+Hermes Agent (Mac Studio)
+    ├── prompts/navigator.md     ← system prompt
+    ├── bridges/
+    │   ├── hermes_to_mqtt.py   ← pipe Hermes responses → MQTT → HA TTS
+    │   └── mqtt_to_hermes.py   ← MQTT intents (HA voice) → Hermes tool calls
+    └── mcp_servers:
+        ├── signalk-mcp          ← live marine data (github.com/sailingnaturali/signalk-mcp)
+        └── logbook-mcp          ← marked moments, sea logs (github.com/sailingnaturali/logbook-mcp)
+```
+
+## Related repos
+
+- [`signalk-mcp`](https://github.com/sailingnaturali/signalk-mcp) — MCP server for SignalK data
+- [`logbook-mcp`](https://github.com/sailingnaturali/logbook-mcp) — MCP server for sea-day logging
+- [`infrastructure`](https://github.com/sailingnaturali/infrastructure) — private; Pi 5 + network configs
+
+## License
+
+MIT.
