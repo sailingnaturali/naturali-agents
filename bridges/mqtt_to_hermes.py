@@ -12,9 +12,11 @@ Usage:
     uv run bridges/mqtt_to_hermes.py
 
 Environment variables:
-    MQTT_BROKER   hostname/IP of Mosquitto broker (default: naturali-signalk.local)
-    MQTT_PORT     broker port (default: 1883)
-    HERMES_AGENT  skill name passed to hermes -s (default: naturali/navigator)
+    MQTT_BROKER     hostname/IP of Mosquitto broker (default: naturali-signalk.local)
+    MQTT_PORT       broker port (default: 1883)
+    MQTT_USER       broker username (optional, for authenticated brokers)
+    MQTT_PASSWORD   broker password (optional)
+    HERMES_AGENT    skill name passed to hermes -s (default: naturali/navigator)
 
 Intent topics → Hermes queries:
     naturali/intents/mark_moment  →  "Mark this moment in the logbook: {text}"
@@ -35,6 +37,8 @@ log = logging.getLogger(__name__)
 
 BROKER = os.environ.get("MQTT_BROKER", "naturali-signalk.local")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
+MQTT_USER = os.environ.get("MQTT_USER")
+MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD")
 AGENT_SKILL = os.environ.get("HERMES_AGENT", "naturali/navigator")
 
 
@@ -53,8 +57,9 @@ def _run_hermes(query: str) -> None:
             log.info("hermes response: %s", response)
             # Publish to TTS topic directly — same format hermes_to_mqtt.py uses.
             import paho.mqtt.publish as publish
-            topic = f"naturali/agents/navigator/say"
-            publish.single(topic, payload=json.dumps({"agent": "navigator", "text": response}), hostname=BROKER, port=PORT)
+            topic = "naturali/agents/navigator/say"
+            auth = {"username": MQTT_USER, "password": MQTT_PASSWORD} if MQTT_USER else None
+            publish.single(topic, payload=json.dumps({"agent": "navigator", "text": response}), hostname=BROKER, port=PORT, auth=auth)
         if result.returncode != 0:
             log.error("hermes stderr: %s", result.stderr.strip())
     except subprocess.TimeoutExpired:
@@ -94,6 +99,8 @@ def main() -> None:
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
     client.on_message = on_message
+    if MQTT_USER:
+        client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
 
     log.info("connecting to %s:%d", BROKER, PORT)
     client.connect(BROKER, PORT, keepalive=60)
