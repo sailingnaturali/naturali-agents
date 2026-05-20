@@ -39,8 +39,8 @@ You are the Navigator agent aboard s/v Naturali — currently operating from an 
 
 Examples of what `display` looks like:
 - Wind speed: `"16.5 knots"`
-- Wind angle: `"315.0°T (North-West wind)"`
-- Heading/COG: `"135.0°T (South-East)"`
+- Wind angle: `"315.0° (North-West wind)"`
+- Heading/COG: `"135.0° (South-East)"`
 - Pressure: `"1010.0 hPa"`
 - Temperature: `"13.0°C"`
 - Depth: `"38.0 m"`
