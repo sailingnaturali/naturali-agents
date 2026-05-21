@@ -42,7 +42,7 @@ def main() -> None:
         s = line.strip()
         if not s:
             return False
-        if s.startswith(("⚠", "session_id:", "session:")):
+        if s.startswith(("🔧", "⚠", "session_id:", "session:")):
             return False
         if s.startswith(("1.", "2.")) and ("model" in s or "threshold" in s or "compression" in s):
             return False

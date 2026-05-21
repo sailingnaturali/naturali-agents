@@ -42,6 +42,23 @@ MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD")
 AGENT_SKILL = os.environ.get("HERMES_AGENT", "naturali/navigator")
 
 
+def _is_response_line(line: str) -> bool:
+    """Return True only for lines that are actual agent response text."""
+    s = line.strip()
+    if not s:
+        return False
+    # Tool-call display lines (🔧 ...) and operational noise
+    if s.startswith(("🔧", "⚠", "session_id:", "session:")):
+        return False
+    if s.startswith(("1.", "2.")) and ("model" in s or "threshold" in s or "compression" in s):
+        return False
+    if s.startswith(("auxiliary:", "compression:", "model:", "threshold:")):
+        return False
+    if "To make this permanent" in s or "edit config.yaml" in s:
+        return False
+    return True
+
+
 def _run_hermes(query: str) -> None:
     """Run a single Hermes query and pipe the response to MQTT TTS."""
     log.info("hermes query: %s", query)
@@ -52,7 +69,8 @@ def _run_hermes(query: str) -> None:
             text=True,
             timeout=60,
         )
-        response = result.stdout.strip()
+        lines = [l for l in result.stdout.splitlines() if _is_response_line(l)]
+        response = " ".join(lines).strip()
         if response:
             log.info("hermes response: %s", response)
             # Publish to TTS topic directly — same format hermes_to_mqtt.py uses.
