@@ -16,6 +16,7 @@ Environment variables — see SPEC.md for the canonical table.
 Intent topics → Hermes queries:
     naturali/intents/mark_moment  →  "Mark this moment in the logbook: {text}"
     naturali/intents/ask          →  "{text}"   (generic pass-through)
+    naturali/intents/briefing     →  runs briefing.py (handles its own outputs)
 """
 
 from __future__ import annotations
@@ -76,6 +77,28 @@ def _run_hermes(query: str) -> None:
     )
 
 
+def _run_briefing() -> None:
+    """Invoke briefing.py as a subprocess. It handles all publishing internally."""
+    log.info("triggering daily briefing generation")
+    scripts_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "scripts")
+    )
+    briefing_script = os.path.join(scripts_dir, "briefing.py")
+    try:
+        result = subprocess.run(
+            ["uv", "run", briefing_script],
+            timeout=180,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            log.error("briefing.py failed (rc=%d): %s", result.returncode, result.stderr.strip())
+        else:
+            log.info("briefing complete")
+    except subprocess.TimeoutExpired:
+        log.error("briefing.py timed out after 180s")
+
+
 def on_connect(client: mqtt.Client, userdata: None, flags: dict, rc: int, properties=None) -> None:
     if rc == 0:
         log.info("connected to %s:%d", BROKER, PORT)
@@ -101,6 +124,8 @@ def on_message(client: mqtt.Client, userdata: None, msg: mqtt.MQTTMessage) -> No
     elif topic == "naturali/intents/ask":
         if text:
             _run_hermes(text)
+    elif topic == "naturali/intents/briefing":
+        _run_briefing()
     else:
         log.warning("unhandled intent topic: %s", topic)
 
