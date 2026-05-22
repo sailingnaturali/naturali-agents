@@ -11,12 +11,7 @@ It subscribes to naturali/intents/# and maps each intent to a Hermes query.
 Usage:
     uv run bridges/mqtt_to_hermes.py
 
-Environment variables:
-    MQTT_BROKER     hostname/IP of Mosquitto broker (default: naturali-signalk.local)
-    MQTT_PORT       broker port (default: 1883)
-    MQTT_USER       broker username (optional, for authenticated brokers)
-    MQTT_PASSWORD   broker password (optional)
-    HERMES_AGENT    skill name passed to hermes -s (default: naturali/navigator)
+Environment variables — see SPEC.md for the canonical table.
 
 Intent topics → Hermes queries:
     naturali/intents/mark_moment  →  "Mark this moment in the logbook: {text}"
@@ -31,6 +26,9 @@ import os
 import subprocess
 
 import paho.mqtt.client as mqtt
+import paho.mqtt.publish as publish
+
+from _filter import is_response_line
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -39,24 +37,9 @@ BROKER = os.environ.get("MQTT_BROKER", "naturali-signalk.local")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 MQTT_USER = os.environ.get("MQTT_USER")
 MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD")
-AGENT_SKILL = os.environ.get("HERMES_AGENT", "naturali/navigator")
-
-
-def _is_response_line(line: str) -> bool:
-    """Return True only for lines that are actual agent response text."""
-    s = line.strip()
-    if not s:
-        return False
-    # Tool-call display lines (🔧 ...) and operational noise
-    if s.startswith(("🔧", "⚠", "session_id:", "session:")):
-        return False
-    if s.startswith(("1.", "2.")) and ("model" in s or "threshold" in s or "compression" in s):
-        return False
-    if s.startswith(("auxiliary:", "compression:", "model:", "threshold:")):
-        return False
-    if "To make this permanent" in s or "edit config.yaml" in s:
-        return False
-    return True
+AGENT_NAME = os.environ.get("AGENT_NAME", "navigator")
+HERMES_SKILL = os.environ.get("HERMES_SKILL", "naturali/navigator")
+SAY_TOPIC = f"naturali/agents/{AGENT_NAME}/say"
 
 
 def _run_hermes(query: str) -> None:
@@ -64,24 +47,33 @@ def _run_hermes(query: str) -> None:
     log.info("hermes query: %s", query)
     try:
         result = subprocess.run(
-            ["hermes", "chat", "-Q", "-s", AGENT_SKILL, "-q", query],
+            ["hermes", "chat", "-Q", "-s", HERMES_SKILL, "-q", query],
             capture_output=True,
             text=True,
             timeout=60,
         )
-        lines = [l for l in result.stdout.splitlines() if _is_response_line(l)]
-        response = " ".join(lines).strip()
-        if response:
-            log.info("hermes response: %s", response)
-            # Publish to TTS topic directly — same format hermes_to_mqtt.py uses.
-            import paho.mqtt.publish as publish
-            topic = "naturali/agents/navigator/say"
-            auth = {"username": MQTT_USER, "password": MQTT_PASSWORD} if MQTT_USER else None
-            publish.single(topic, payload=json.dumps({"agent": "navigator", "text": response}), hostname=BROKER, port=PORT, auth=auth)
-        if result.returncode != 0:
-            log.error("hermes stderr: %s", result.stderr.strip())
     except subprocess.TimeoutExpired:
         log.error("hermes timed out for query: %s", query)
+        return
+
+    if result.returncode != 0:
+        log.error("hermes exit=%d stderr: %s", result.returncode, result.stderr.strip())
+        return
+
+    lines = [l for l in result.stdout.splitlines() if is_response_line(l)]
+    response = " ".join(lines).strip()
+    if not response:
+        return
+
+    log.info("hermes response: %s", response)
+    auth = {"username": MQTT_USER, "password": MQTT_PASSWORD} if MQTT_USER else None
+    publish.single(
+        SAY_TOPIC,
+        payload=json.dumps({"agent": AGENT_NAME, "text": response}),
+        hostname=BROKER,
+        port=PORT,
+        auth=auth,
+    )
 
 
 def on_connect(client: mqtt.Client, userdata: None, flags: dict, rc: int, properties=None) -> None:

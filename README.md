@@ -20,7 +20,8 @@ Navigator only. Hermes loaded with the `signalk-mcp` MCP server. Single-prompt a
 
 ```
 Hermes Agent (Mac Studio)
-    ├── prompts/navigator.md     ← system prompt
+    ├── SOUL.md                  ← shared persona (loaded first for every agent)
+    ├── prompts/navigator.md     ← per-agent responsibilities + tool surface
     ├── bridges/
     │   ├── hermes_to_mqtt.py   ← pipe Hermes responses → MQTT → HA TTS
     │   └── mqtt_to_hermes.py   ← MQTT intents (HA voice) → Hermes tool calls
@@ -28,6 +29,8 @@ Hermes Agent (Mac Studio)
         ├── signalk-mcp          ← live marine data (github.com/sailingnaturali/signalk-mcp)
         └── logbook-mcp          ← marked moments, sea logs (github.com/sailingnaturali/logbook-mcp)
 ```
+
+Full interface contract — MQTT topics/payloads, env vars, MCP tool surface, persona composition — in [SPEC.md](SPEC.md).
 
 ## Related repos
 

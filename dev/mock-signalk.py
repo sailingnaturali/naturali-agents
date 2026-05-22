@@ -21,7 +21,7 @@ import math
 import random
 import sys
 from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
 
@@ -49,7 +49,7 @@ SCALARS = {
     "navigation.courseOverGroundTrue": 2.356,   # radians (~135°T)
     "navigation.headingTrue":          2.268,   # radians (~130°T)
     "navigation.speedThroughWater":    3.0,     # m/s
-    "navigation.magneticVariation":   -0.261,   # radians (~-15° E)
+    "navigation.magneticVariation":    0.279,   # radians (~+16° = 16°E; SignalK convention: +ve ⇒ magnetic east of true)
     # Wind (true)
     "environment.wind.speedTrue":      8.5,     # m/s (~16.5 kts)
     "environment.wind.angleTrueWater": 5.498,   # radians (~315° = NW)
@@ -94,6 +94,15 @@ BATTERY_HOUSE = {
 class SignalKHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
+        try:
+            self._dispatch()
+        except Exception as e:
+            self.send_response(500)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(f"mock-signalk error: {e}\n".encode())
+
+    def _dispatch(self):
         path = self.path.split("?")[0].rstrip("/")
 
         # Root API
@@ -162,7 +171,7 @@ class SignalKHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    server = HTTPServer(("127.0.0.1", PORT), SignalKHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), SignalKHandler)
 
     print(f"Mock SignalK  →  http://localhost:{PORT}")
     print()
