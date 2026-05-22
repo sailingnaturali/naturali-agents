@@ -2,10 +2,12 @@ import respx
 import httpx
 import pytest
 import sqlite3
+import subprocess
 import tempfile
 import os
 import importlib
 import json
+from pathlib import Path
 import briefing
 
 
@@ -299,3 +301,17 @@ def test_archive_to_logbook_inserts_row():
         assert abs(rows[0][2] - (-123.05)) < 0.001
     finally:
         os.unlink(db_path)
+
+
+def test_dry_run_prints_prompt_without_calling_hermes():
+    result = subprocess.run(
+        ["uv", "run", "scripts/briefing.py", "--dry-run"],
+        capture_output=True, text=True, timeout=60,
+        cwd=str(Path(__file__).parent.parent),
+    )
+    assert result.returncode == 0
+    assert "Generate the daily briefing" in result.stdout
+    assert "WEATHER" in result.stdout or "unavailable" in result.stdout
+    assert "TIDES" in result.stdout or "unavailable" in result.stdout
+    # hermes should NOT have been called
+    assert "mcp_signalk" not in result.stdout

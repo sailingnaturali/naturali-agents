@@ -261,7 +261,22 @@ def parse_briefing_response(text: str) -> dict | None:
 
 
 def run_navigator(prompt: str) -> dict | None:
-    pass
+    log.info("invoking Navigator agent")
+    try:
+        result = subprocess.run(
+            ["hermes", "chat", "-Q", "-s", AGENT_SKILL, "-q", prompt],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            log.error("hermes failed: %s", result.stderr.strip())
+            return None
+        return parse_briefing_response(result.stdout)
+    except subprocess.TimeoutExpired:
+        log.error("Navigator timed out after 120s")
+        return None
+    except FileNotFoundError:
+        log.error("hermes not found on PATH")
+        return None
 
 
 def publish_to_ha(briefing_markdown: str) -> None:
@@ -297,7 +312,47 @@ def archive_to_logbook(briefing_markdown: str, db_path: str, lat: float, lon: fl
 
 
 def main(dry_run: bool = False) -> None:
-    pass
+    lat, lon = fetch_position()
+    log.info("position: %.4f, %.4f", lat, lon)
+
+    weather = fetch_weather(lat, lon)
+    if weather is None:
+        log.warning("weather fetch failed — briefing will note unavailability")
+
+    tides = fetch_tides(lat, lon)
+    if tides is None:
+        log.warning("tides fetch failed — briefing will note unavailability")
+
+    prompt = build_prompt(weather, tides, lat, lon)
+
+    if dry_run:
+        print(prompt)
+        return
+
+    response = run_navigator(prompt)
+    if response is None:
+        log.error("Navigator returned no response — aborting")
+        return
+
+    briefing_markdown = response["briefing_markdown"]
+    tts_extract = response["tts_extract"]
+
+    try:
+        publish_to_ha(briefing_markdown)
+    except Exception as e:
+        log.error("publish_to_ha failed: %s", e)
+
+    try:
+        publish_tts(tts_extract)
+    except Exception as e:
+        log.error("publish_tts failed: %s", e)
+
+    try:
+        archive_to_logbook(briefing_markdown, LOGBOOK_DB_PATH, lat, lon)
+    except Exception as e:
+        log.error("archive_to_logbook failed: %s", e)
+
+    log.info("briefing complete")
 
 
 if __name__ == "__main__":
