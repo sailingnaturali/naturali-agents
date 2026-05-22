@@ -174,7 +174,13 @@ def fetch_tides(lat: float, lon: float) -> dict | None:
 
 
 def _deg_to_compass(deg: float) -> str:
-    pass
+    points = [
+        "North", "North-North-East", "North-East", "East-North-East",
+        "East", "East-South-East", "South-East", "South-South-East",
+        "South", "South-South-West", "South-West", "West-South-West",
+        "West", "West-North-West", "North-West", "North-North-West",
+    ]
+    return points[round(deg / 22.5) % 16]
 
 
 def build_prompt(
@@ -183,7 +189,45 @@ def build_prompt(
     lat: float,
     lon: float,
 ) -> str:
-    pass
+    parts: list[str] = ["Generate the daily briefing. External data pre-fetched for you:\n"]
+
+    if weather:
+        compass = _deg_to_compass(weather["wind_direction_deg"])
+        gust_note = ""
+        if weather["wind_gust_knots"] > weather["wind_knots"] + 5:
+            gust_note = f", gusting {weather['wind_gust_knots']}"
+        afternoon_note = ""
+        if weather["afternoon_wind_knots"] != weather["wind_knots"]:
+            direction = "building" if weather["afternoon_wind_knots"] > weather["wind_knots"] else "easing"
+            afternoon_note = f" ({direction} to {weather['afternoon_wind_knots']} knots this afternoon)"
+        wave_note = f"\nWave height: {weather['wave_height_m']}m" if weather["wave_height_m"] is not None else ""
+        parts.append(
+            f"WEATHER (Open-Meteo, vessel position):\n"
+            f"Wind: {weather['wind_knots']} knots {compass} ({weather['wind_direction_deg']}°){gust_note}{afternoon_note}"
+            f"{wave_note}\n"
+            f"Pressure: {weather['pressure_hpa']} hPa ({weather['pressure_trend']})"
+        )
+    else:
+        parts.append("WEATHER: unavailable — check forecast before departure")
+
+    if tides:
+        lines = [f"TIDES ({tides['station_name']}, {tides['distance_km']}km from vessel):"]
+        for event in tides["events"]:
+            dt = datetime.fromisoformat(event["time_utc"].replace("Z", "+00:00"))
+            lines.append(f"  {event['type'].capitalize()}: {dt.strftime('%H:%M')} UTC — {event['height_m']}m")
+        parts.append("\n".join(lines))
+    else:
+        parts.append("TIDES: unavailable — verify tide timing manually")
+
+    parts.append(
+        "Use your SignalK MCP tools to get current vessel state (position, wind, battery, route).\n"
+        "Then synthesize the daily briefing.\n"
+        'Respond with valid JSON only: {"briefing_markdown": "...", "tts_extract": "..."}\n'
+        "briefing_markdown: full markdown with sections ## Weather, ## Navigation, ## Vessel Systems\n"
+        "tts_extract: spoken summary, max 75 words, no markdown"
+    )
+
+    return "\n\n".join(parts)
 
 
 def _is_response_line(line: str) -> bool:

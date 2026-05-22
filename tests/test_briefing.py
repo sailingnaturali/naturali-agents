@@ -161,3 +161,51 @@ def test_fetch_tides_returns_none_on_failure():
         side_effect=httpx.ConnectError("refused")
     )
     assert briefing.fetch_tides(48.76, -123.05) is None
+
+
+def test_deg_to_compass():
+    assert briefing._deg_to_compass(0) == "North"
+    assert briefing._deg_to_compass(315) == "North-West"
+    assert briefing._deg_to_compass(135) == "South-East"
+    assert briefing._deg_to_compass(180) == "South"
+
+
+def test_build_prompt_contains_weather_and_tides():
+    weather = {
+        "wind_knots": 14.0, "wind_direction_deg": 315, "wind_gust_knots": 19.0,
+        "pressure_hpa": 1012.0, "pressure_trend": "steady",
+        "afternoon_wind_knots": 18.0, "wave_height_m": 0.8,
+    }
+    tides = {
+        "station_name": "Tsawwassen", "distance_km": 28,
+        "events": [
+            {"time_utc": "2026-05-21T06:00:00Z", "height_m": 4.8, "type": "high"},
+            {"time_utc": "2026-05-21T11:39:00Z", "height_m": 3.4, "type": "low"},
+        ],
+    }
+    prompt = briefing.build_prompt(weather, tides, 48.76, -123.05)
+    assert "14.0 knots" in prompt
+    assert "North-West" in prompt
+    assert "1012.0 hPa" in prompt
+    assert "Tsawwassen" in prompt
+    assert "28km" in prompt
+    assert "4.8m" in prompt
+    assert "briefing_markdown" in prompt
+    assert "tts_extract" in prompt
+
+
+def test_build_prompt_weather_unavailable():
+    prompt = briefing.build_prompt(None, None, 48.76, -123.05)
+    assert "unavailable" in prompt
+    assert "briefing_markdown" in prompt
+
+
+def test_build_prompt_tides_unavailable():
+    weather = {
+        "wind_knots": 10.0, "wind_direction_deg": 270, "wind_gust_knots": 12.0,
+        "pressure_hpa": 1010.0, "pressure_trend": "rising",
+        "afternoon_wind_knots": 10.0, "wave_height_m": None,
+    }
+    prompt = briefing.build_prompt(weather, None, 48.76, -123.05)
+    assert "10.0 knots" in prompt
+    assert "unavailable" in prompt
