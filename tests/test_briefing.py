@@ -258,6 +258,18 @@ def test_parse_briefing_response_invalid_returns_none():
     assert briefing.parse_briefing_response("") is None
 
 
+def test_parse_briefing_response_strips_code_fence():
+    text = (
+        "```json\n"
+        '{"briefing_markdown": "## Weather\\nAll clear.", "tts_extract": "Wind is 5 knots."}\n'
+        "```"
+    )
+    result = briefing.parse_briefing_response(text)
+    assert result is not None
+    assert result["tts_extract"] == "Wind is 5 knots."
+    assert result["briefing_markdown"] == "## Weather\nAll clear."
+
+
 @respx.mock
 def test_publish_to_ha_posts_to_rest_api(monkeypatch):
     monkeypatch.setenv("HOMEASSISTANT_TOKEN", "test-token")

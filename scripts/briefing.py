@@ -250,6 +250,14 @@ def parse_briefing_response(text: str) -> dict | None:
     cleaned = "\n".join(lines).strip()
     if not cleaned:
         return None
+
+    # Strip markdown code fences (```json ... ``` or ``` ... ```)
+    if cleaned.startswith("```"):
+        inner = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if inner.endswith("```"):
+            inner = inner[: inner.rfind("```")]
+        cleaned = inner.strip()
+
     try:
         data = json.loads(cleaned)
         if "briefing_markdown" in data and "tts_extract" in data:
