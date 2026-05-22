@@ -49,11 +49,69 @@ MOCK_LON = -123.05
 
 
 def fetch_position() -> tuple[float, float]:
-    pass
+    try:
+        r = httpx.get(
+            f"{SIGNALK_URL}/signalk/v1/api/vessels/self/navigation/position",
+            timeout=5,
+        )
+        r.raise_for_status()
+        pos = r.json().get("value", {})
+        return float(pos["latitude"]), float(pos["longitude"])
+    except Exception as e:
+        log.warning("fetch_position failed (%s) — using mock position", e)
+        return MOCK_LAT, MOCK_LON
 
 
 def fetch_weather(lat: float, lon: float) -> dict | None:
-    pass
+    try:
+        r = httpx.get(OPEN_METEO_URL, params={
+            "latitude": lat, "longitude": lon,
+            "hourly": "windspeed_10m,winddirection_10m,windgusts_10m,pressure_msl",
+            "wind_speed_unit": "kn",
+            "forecast_days": 1,
+            "timezone": "auto",
+        }, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        h = datetime.now(timezone.utc).hour
+        hourly = data["hourly"]
+
+        # Pressure trend: compare to 6 hours ago
+        prior = max(0, h - 6)
+        pressure_delta = hourly["pressure_msl"][h] - hourly["pressure_msl"][prior]
+        trend = "rising" if pressure_delta > 1 else "falling" if pressure_delta < -1 else "steady"
+
+        # Afternoon wind (6 hours ahead, capped at last hour)
+        afternoon = min(23, h + 6)
+        afternoon_wind = round(hourly["windspeed_10m"][afternoon], 1)
+
+        result = {
+            "wind_knots": round(hourly["windspeed_10m"][h], 1),
+            "wind_direction_deg": round(hourly["winddirection_10m"][h]),
+            "wind_gust_knots": round(hourly["windgusts_10m"][h], 1),
+            "pressure_hpa": round(hourly["pressure_msl"][h], 1),
+            "pressure_trend": trend,
+            "afternoon_wind_knots": afternoon_wind,
+            "wave_height_m": None,
+        }
+    except Exception as e:
+        log.warning("fetch_weather failed: %s", e)
+        return None
+
+    # Marine wave height — optional, failure OK
+    try:
+        mr = httpx.get(OPEN_METEO_MARINE_URL, params={
+            "latitude": lat, "longitude": lon,
+            "hourly": "wave_height",
+            "forecast_days": 1,
+            "timezone": "auto",
+        }, timeout=10)
+        mr.raise_for_status()
+        result["wave_height_m"] = round(mr.json()["hourly"]["wave_height"][h], 1)
+    except Exception:
+        pass  # wave height unavailable — not fatal
+
+    return result
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
