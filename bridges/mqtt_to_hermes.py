@@ -81,7 +81,7 @@ def _run_briefing() -> None:
     """Invoke briefing.py as a subprocess. It handles all publishing internally."""
     log.info("triggering daily briefing generation")
     scripts_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "scripts")
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts")
     )
     briefing_script = os.path.join(scripts_dir, "briefing.py")
     try:

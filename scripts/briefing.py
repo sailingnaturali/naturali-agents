@@ -69,7 +69,7 @@ def fetch_weather(lat: float, lon: float) -> dict | None:
             "hourly": "windspeed_10m,winddirection_10m,windgusts_10m,pressure_msl",
             "wind_speed_unit": "kn",
             "forecast_days": 1,
-            "timezone": "auto",
+            "timezone": "UTC",
         }, timeout=10)
         r.raise_for_status()
         data = r.json()
@@ -104,7 +104,7 @@ def fetch_weather(lat: float, lon: float) -> dict | None:
             "latitude": lat, "longitude": lon,
             "hourly": "wave_height",
             "forecast_days": 1,
-            "timezone": "auto",
+            "timezone": "UTC",
         }, timeout=10)
         mr.raise_for_status()
         result["wave_height_m"] = round(mr.json()["hourly"]["wave_height"][h], 1)
