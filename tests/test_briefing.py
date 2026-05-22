@@ -85,3 +85,79 @@ def test_fetch_weather_wave_height_optional():
     result = briefing.fetch_weather(48.76, -123.05)
     assert result is not None
     assert result["wave_height_m"] is None
+
+
+def test_haversine_km_boundary_pass_to_tsawwassen():
+    # Boundary Pass (48.76, -123.05) to Tsawwassen (49.007, -123.129) ≈ 28km
+    d = briefing._haversine_km(48.76, -123.05, 49.007, -123.129)
+    assert abs(d - 28.0) < 2.0
+
+
+def test_nearest_tide_station_filters_operating_and_hilo():
+    stations = [
+        {
+            "id": "aaa", "officialName": "No HiLo", "operating": True,
+            "latitude": 49.0, "longitude": -123.0,
+            "timeSeries": [{"code": "wlp"}],
+        },
+        {
+            "id": "bbb", "officialName": "Not Operating", "operating": False,
+            "latitude": 49.0, "longitude": -123.0,
+            "timeSeries": [{"code": "wlp-hilo"}],
+        },
+        {
+            "id": "ccc", "officialName": "Tsawwassen", "operating": True,
+            "latitude": 49.007, "longitude": -123.129,
+            "timeSeries": [{"code": "wlp-hilo"}],
+        },
+    ]
+    result = briefing._nearest_tide_station(48.76, -123.05, stations)
+    assert result["id"] == "ccc"
+
+
+def test_classify_tide_events_alternates_high_low():
+    raw = [
+        {"eventDate": "2026-05-21T06:00:00Z", "value": 4.76},
+        {"eventDate": "2026-05-21T11:39:00Z", "value": 3.38},
+        {"eventDate": "2026-05-21T15:35:00Z", "value": 3.82},
+        {"eventDate": "2026-05-21T23:11:00Z", "value": 0.58},
+    ]
+    result = briefing._classify_tide_events(raw)
+    assert [e["type"] for e in result] == ["high", "low", "high", "low"]
+    assert result[0]["height_m"] == 4.8
+    assert result[0]["time_utc"] == "2026-05-21T06:00:00Z"
+
+
+@respx.mock
+def test_fetch_tides_returns_station_and_events():
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
+        return_value=httpx.Response(200, json=[
+            {
+                "id": "ccc", "officialName": "Tsawwassen", "operating": True,
+                "latitude": 49.007, "longitude": -123.129,
+                "timeSeries": [{"code": "wlp-hilo"}],
+            }
+        ])
+    )
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/ccc/data").mock(
+        return_value=httpx.Response(200, json=[
+            {"eventDate": "2026-05-21T06:00:00Z", "value": 4.76, "qcFlagCode": "1"},
+            {"eventDate": "2026-05-21T11:39:00Z", "value": 3.38, "qcFlagCode": "1"},
+            {"eventDate": "2026-05-21T15:35:00Z", "value": 3.82, "qcFlagCode": "1"},
+            {"eventDate": "2026-05-21T23:11:00Z", "value": 0.58, "qcFlagCode": "1"},
+        ])
+    )
+    result = briefing.fetch_tides(48.76, -123.05)
+    assert result is not None
+    assert result["station_name"] == "Tsawwassen"
+    assert result["distance_km"] == 28
+    assert len(result["events"]) == 4
+    assert result["events"][0]["type"] == "high"
+
+
+@respx.mock
+def test_fetch_tides_returns_none_on_failure():
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
+        side_effect=httpx.ConnectError("refused")
+    )
+    assert briefing.fetch_tides(48.76, -123.05) is None

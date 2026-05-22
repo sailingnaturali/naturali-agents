@@ -115,19 +115,62 @@ def fetch_weather(lat: float, lon: float) -> dict | None:
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    pass
+    R = 6371.0
+    φ1, φ2 = math.radians(lat1), math.radians(lat2)
+    dφ = math.radians(lat2 - lat1)
+    dλ = math.radians(lon2 - lon1)
+    a = math.sin(dφ / 2) ** 2 + math.cos(φ1) * math.cos(φ2) * math.sin(dλ / 2) ** 2
+    return R * 2 * math.asin(math.sqrt(a))
 
 
 def _nearest_tide_station(lat: float, lon: float, stations: list[dict]) -> dict:
-    pass
+    candidates = [
+        s for s in stations
+        if s.get("operating")
+        and any(ts["code"] == "wlp-hilo" for ts in s.get("timeSeries", []))
+    ]
+    return min(candidates, key=lambda s: _haversine_km(lat, lon, s["latitude"], s["longitude"]))
 
 
 def _classify_tide_events(events: list[dict]) -> list[dict]:
-    pass
+    if not events:
+        return []
+    first_is_high = len(events) < 2 or events[0]["value"] > events[1]["value"]
+    types = ["high", "low"] if first_is_high else ["low", "high"]
+    return [
+        {"time_utc": e["eventDate"], "height_m": round(e["value"], 1), "type": types[i % 2]}
+        for i, e in enumerate(events)
+    ]
 
 
 def fetch_tides(lat: float, lon: float) -> dict | None:
-    pass
+    try:
+        sr = httpx.get(CHS_STATIONS_URL, timeout=15)
+        sr.raise_for_status()
+        station = _nearest_tide_station(lat, lon, sr.json())
+
+        today = datetime.now(timezone.utc).date()
+        tomorrow = today + timedelta(days=1)
+        dr = httpx.get(
+            CHS_DATA_URL.format(station_id=station["id"]),
+            params={
+                "time-series-code": "wlp-hilo",
+                "from": f"{today}T00:00:00Z",
+                "to": f"{tomorrow}T00:00:00Z",
+            },
+            timeout=15,
+        )
+        dr.raise_for_status()
+        events = _classify_tide_events(dr.json())
+        distance_km = round(_haversine_km(lat, lon, station["latitude"], station["longitude"]))
+        return {
+            "station_name": station["officialName"],
+            "distance_km": distance_km,
+            "events": events,
+        }
+    except Exception as e:
+        log.warning("fetch_tides failed: %s", e)
+        return None
 
 
 def _deg_to_compass(deg: float) -> str:
