@@ -209,3 +209,43 @@ def test_build_prompt_tides_unavailable():
     prompt = briefing.build_prompt(weather, None, 48.76, -123.05)
     assert "10.0 knots" in prompt
     assert "unavailable" in prompt
+
+
+def test_is_response_line_filters_noise():
+    assert briefing._is_response_line('{"briefing_markdown": "test"}') is True
+    assert briefing._is_response_line("🔧 calling mcp_signalk_read_sensor") is False
+    assert briefing._is_response_line("⚠ context limit approaching") is False
+    assert briefing._is_response_line("session_id: abc123") is False
+    assert briefing._is_response_line("") is False
+    assert briefing._is_response_line("  ") is False
+
+
+def test_parse_briefing_response_clean_json():
+    text = '{"briefing_markdown": "## Daily Briefing", "tts_extract": "Good morning."}'
+    result = briefing.parse_briefing_response(text)
+    assert result is not None
+    assert result["briefing_markdown"] == "## Daily Briefing"
+    assert result["tts_extract"] == "Good morning."
+
+
+def test_parse_briefing_response_with_preamble_noise():
+    text = (
+        "🔧 calling mcp_signalk_read_sensor\n"
+        "session_id: abc\n"
+        '{"briefing_markdown": "## Briefing", "tts_extract": "Wind is 12 knots."}'
+    )
+    result = briefing.parse_briefing_response(text)
+    assert result is not None
+    assert result["tts_extract"] == "Wind is 12 knots."
+
+
+def test_parse_briefing_response_multiline_json():
+    text = '{\n  "briefing_markdown": "## B",\n  "tts_extract": "Good morning."\n}'
+    result = briefing.parse_briefing_response(text)
+    assert result is not None
+    assert result["tts_extract"] == "Good morning."
+
+
+def test_parse_briefing_response_invalid_returns_none():
+    assert briefing.parse_briefing_response("not json at all") is None
+    assert briefing.parse_briefing_response("") is None

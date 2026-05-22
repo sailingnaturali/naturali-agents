@@ -231,11 +231,33 @@ def build_prompt(
 
 
 def _is_response_line(line: str) -> bool:
-    pass
+    s = line.strip()
+    if not s:
+        return False
+    if s.startswith(("🔧", "⚠", "session_id:", "session:")):
+        return False
+    if s.startswith(("1.", "2.")) and ("model" in s or "threshold" in s or "compression" in s):
+        return False
+    if s.startswith(("auxiliary:", "compression:", "model:", "threshold:")):
+        return False
+    if "To make this permanent" in s or "edit config.yaml" in s:
+        return False
+    return True
 
 
 def parse_briefing_response(text: str) -> dict | None:
-    pass
+    lines = [l for l in text.splitlines() if _is_response_line(l)]
+    cleaned = "\n".join(lines).strip()
+    if not cleaned:
+        return None
+    try:
+        data = json.loads(cleaned)
+        if "briefing_markdown" in data and "tts_extract" in data:
+            return data
+        return None
+    except json.JSONDecodeError:
+        log.warning("parse_briefing_response: not valid JSON: %r", cleaned[:200])
+        return None
 
 
 def run_navigator(prompt: str) -> dict | None:
