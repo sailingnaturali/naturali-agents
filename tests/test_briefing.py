@@ -1,6 +1,11 @@
 import respx
 import httpx
 import pytest
+import sqlite3
+import tempfile
+import os
+import importlib
+import json
 import briefing
 
 
@@ -249,3 +254,48 @@ def test_parse_briefing_response_multiline_json():
 def test_parse_briefing_response_invalid_returns_none():
     assert briefing.parse_briefing_response("not json at all") is None
     assert briefing.parse_briefing_response("") is None
+
+
+@respx.mock
+def test_publish_to_ha_posts_to_rest_api(monkeypatch):
+    monkeypatch.setenv("HOMEASSISTANT_TOKEN", "test-token")
+    monkeypatch.setenv("HA_URL", "http://ha-test:8123")
+    importlib.reload(briefing)
+
+    respx.post("http://ha-test:8123/api/states/input_text.daily_briefing").mock(
+        return_value=httpx.Response(200, json={"state": "ok"})
+    )
+    briefing.publish_to_ha("## Daily Briefing\nTest content")
+    assert respx.calls.last.request.url.path == "/api/states/input_text.daily_briefing"
+    body = json.loads(respx.calls.last.request.content)
+    assert body["state"] == "## Daily Briefing\nTest content"
+
+
+def test_archive_to_logbook_inserts_row():
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.execute("""
+            CREATE TABLE marked_moments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                text TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                longitude REAL,
+                latitude REAL
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+        briefing.archive_to_logbook("## Briefing text", db_path, 48.76, -123.05)
+
+        conn = sqlite3.connect(db_path)
+        rows = conn.execute("SELECT text, latitude, longitude FROM marked_moments").fetchall()
+        conn.close()
+        assert len(rows) == 1
+        assert rows[0][0] == "## Briefing text"
+        assert abs(rows[0][1] - 48.76) < 0.001
+        assert abs(rows[0][2] - (-123.05)) < 0.001
+    finally:
+        os.unlink(db_path)

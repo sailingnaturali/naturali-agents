@@ -265,15 +265,35 @@ def run_navigator(prompt: str) -> dict | None:
 
 
 def publish_to_ha(briefing_markdown: str) -> None:
-    pass
+    r = httpx.post(
+        f"{HA_URL}/api/states/input_text.daily_briefing",
+        headers={"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"},
+        json={"state": briefing_markdown},
+        timeout=10,
+    )
+    r.raise_for_status()
+    log.info("briefing published to HA")
 
 
 def publish_tts(tts_extract: str) -> None:
-    pass
+    auth = {"username": MQTT_USER, "password": MQTT_PASSWORD} if MQTT_USER else None
+    mqtt_publish.single(
+        "naturali/agents/navigator/say",
+        payload=json.dumps({"agent": "navigator", "text": tts_extract}),
+        hostname=BROKER,
+        port=PORT,
+        auth=auth,
+    )
+    log.info("TTS extract published to MQTT")
 
 
 def archive_to_logbook(briefing_markdown: str, db_path: str, lat: float, lon: float) -> None:
-    pass
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO marked_moments (text, timestamp, longitude, latitude) VALUES (?, ?, ?, ?)",
+            (briefing_markdown, datetime.now(timezone.utc).isoformat(), lon, lat),
+        )
+    log.info("briefing archived to logbook")
 
 
 def main(dry_run: bool = False) -> None:
