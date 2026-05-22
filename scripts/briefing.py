@@ -288,10 +288,11 @@ def run_navigator(prompt: str) -> dict | None:
 
 
 def publish_to_ha(briefing_markdown: str) -> None:
+    # HA state is capped at 255 chars — store full markdown in attributes instead
     r = httpx.post(
-        f"{HA_URL}/api/states/input_text.daily_briefing",
+        f"{HA_URL}/api/states/sensor.daily_briefing",
         headers={"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"},
-        json={"state": briefing_markdown},
+        json={"state": "generated", "attributes": {"content": briefing_markdown, "friendly_name": "Daily Briefing"}},
         timeout=10,
     )
     r.raise_for_status()

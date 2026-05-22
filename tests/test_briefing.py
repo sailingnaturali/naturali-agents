@@ -276,13 +276,14 @@ def test_publish_to_ha_posts_to_rest_api(monkeypatch):
     monkeypatch.setenv("HA_URL", "http://ha-test:8123")
     importlib.reload(briefing)
 
-    respx.post("http://ha-test:8123/api/states/input_text.daily_briefing").mock(
-        return_value=httpx.Response(200, json={"state": "ok"})
+    respx.post("http://ha-test:8123/api/states/sensor.daily_briefing").mock(
+        return_value=httpx.Response(200, json={"state": "generated"})
     )
     briefing.publish_to_ha("## Daily Briefing\nTest content")
-    assert respx.calls.last.request.url.path == "/api/states/input_text.daily_briefing"
+    assert respx.calls.last.request.url.path == "/api/states/sensor.daily_briefing"
     body = json.loads(respx.calls.last.request.content)
-    assert body["state"] == "## Daily Briefing\nTest content"
+    assert body["state"] == "generated"
+    assert body["attributes"]["content"] == "## Daily Briefing\nTest content"
 
 
 def test_archive_to_logbook_inserts_row():
