@@ -27,7 +27,8 @@ Hermes Agent (Mac Studio)
     │   └── mqtt_to_hermes.py   ← MQTT intents (HA voice) → Hermes tool calls
     └── mcp_servers:
         ├── signalk-mcp          ← live marine data (github.com/sailingnaturali/signalk-mcp)
-        └── logbook-mcp          ← marked moments, sea logs (github.com/sailingnaturali/logbook-mcp)
+        ├── logbook-mcp          ← marked moments, sea logs (github.com/sailingnaturali/logbook-mcp)
+        └── tide-mcp             ← tidal-gate slack windows (github.com/sailingnaturali/tide-mcp)
 ```
 
 Full interface contract — MQTT topics/payloads, env vars, MCP tool surface, persona composition — in [SPEC.md](SPEC.md).
@@ -36,6 +37,7 @@ Full interface contract — MQTT topics/payloads, env vars, MCP tool surface, pe
 
 - [`signalk-mcp`](https://github.com/sailingnaturali/signalk-mcp) — MCP server for SignalK data
 - [`logbook-mcp`](https://github.com/sailingnaturali/logbook-mcp) — MCP server for sea-day logging
+- [`tide-mcp`](https://github.com/sailingnaturali/tide-mcp) — MCP server for tidal-gate slack windows (CHS + NOAA)
 - [`infrastructure`](https://github.com/sailingnaturali/infrastructure) — private; Pi 5 + network configs
 
 ## License
