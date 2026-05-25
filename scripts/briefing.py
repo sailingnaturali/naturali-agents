@@ -31,6 +31,17 @@ import paho.mqtt.publish as mqtt_publish
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
+# Load ~/.hermes/.env so the script works when invoked directly (not via the bridge's export)
+_env_file = os.path.expanduser("~/.hermes/.env")
+if os.path.exists(_env_file):
+    with open(_env_file) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _, _v = _line.partition("=")
+                if _k.strip() not in os.environ:
+                    os.environ[_k.strip()] = _v.strip().strip('"').strip("'")
+
 SIGNALK_URL = os.environ.get("SIGNALK_URL", "http://localhost:8765")
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 OPEN_METEO_MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
