@@ -14,8 +14,7 @@ Usage:
 Environment variables — see SPEC.md for the canonical table.
 
 Intent topics → Hermes queries:
-    naturali/intents/mark_moment  →  "Mark this moment in the logbook: {text}"
-    naturali/intents/ask          →  "{text}"   (generic pass-through)
+    naturali/intents/ask          →  "{text}"   (all voice — Hermes routes to the right tool)
     naturali/intents/briefing     →  runs briefing.py (handles its own outputs)
 """
 
@@ -118,10 +117,7 @@ def on_message(client: mqtt.Client, userdata: None, msg: mqtt.MQTTMessage) -> No
     text = payload.get("text", "").strip()
     log.info("intent: %s payload=%s", topic, payload)
 
-    if topic == "naturali/intents/mark_moment":
-        query = f"Mark this moment in the logbook: {text}" if text else "Mark this moment in the logbook."
-        _run_hermes(query)
-    elif topic == "naturali/intents/ask":
+    if topic == "naturali/intents/ask":
         if text:
             _run_hermes(text)
     elif topic == "naturali/intents/briefing":
