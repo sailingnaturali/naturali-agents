@@ -21,7 +21,7 @@ Home Assistant (Pi 5)        Mac Studio                   Pi 5 / boat
 
 ## MQTT contract
 
-Broker: Mosquitto on `naturali-signalk.local:1883` by default. Authenticated brokers supported via `MQTT_USER` / `MQTT_PASSWORD`.
+Broker: Mosquitto on `naturalaspi.local:1883` by default. Authenticated brokers supported via `MQTT_USER` / `MQTT_PASSWORD`.
 
 ### Topics
 
@@ -55,7 +55,7 @@ Both bridges read the same set. Defaults match the Phase 0 deployment.
 
 | Var               | Default                       | Used by               | Meaning                                                  |
 |-------------------|-------------------------------|-----------------------|----------------------------------------------------------|
-| `MQTT_BROKER`     | `naturali-signalk.local`      | both bridges          | Mosquitto host                                           |
+| `MQTT_BROKER`     | `naturalaspi.local`      | both bridges          | Mosquitto host                                           |
 | `MQTT_PORT`       | `1883`                        | both bridges          | Mosquitto port                                           |
 | `MQTT_USER`       | unset                         | both bridges          | optional broker auth username                            |
 | `MQTT_PASSWORD`   | unset                         | both bridges          | optional broker auth password                            |

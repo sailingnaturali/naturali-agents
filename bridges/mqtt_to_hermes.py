@@ -34,7 +34,7 @@ from _filter import is_response_line
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-BROKER = os.environ.get("MQTT_BROKER", "naturali-signalk.local")
+BROKER = os.environ.get("MQTT_BROKER", "naturalaspi.local")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 MQTT_USER = os.environ.get("MQTT_USER")
 MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD")

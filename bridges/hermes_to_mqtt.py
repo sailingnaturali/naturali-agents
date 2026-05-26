@@ -27,7 +27,7 @@ from _filter import is_response_line
 
 
 def main() -> None:
-    broker = os.environ.get("MQTT_BROKER", "naturali-signalk.local")
+    broker = os.environ.get("MQTT_BROKER", "naturalaspi.local")
     port = int(os.environ.get("MQTT_PORT", "1883"))
     agent = os.environ.get("AGENT_NAME", "navigator")
     user = os.environ.get("MQTT_USER")
