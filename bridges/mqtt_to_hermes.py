@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import subprocess
 
 import paho.mqtt.client as mqtt
@@ -32,6 +33,14 @@ from _filter import is_response_line
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
+
+def _find(name: str) -> str:
+    """Resolve a command to its full path; falls back to ~/.local/bin/<name>."""
+    return shutil.which(name) or os.path.expanduser(f"~/.local/bin/{name}")
+
+
+UV = _find("uv")
+HERMES = _find("hermes")
 
 BROKER = os.environ.get("MQTT_BROKER", "naturalaspi.local")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
@@ -47,7 +56,7 @@ def _run_hermes(query: str) -> None:
     log.info("hermes query: %s", query)
     try:
         result = subprocess.run(
-            ["hermes", "chat", "-Q", "-s", HERMES_SKILL, "-q", query],
+            [HERMES, "chat", "-Q", "-s", HERMES_SKILL, "-q", query],
             capture_output=True,
             text=True,
             timeout=60,
@@ -85,7 +94,7 @@ def _run_briefing() -> None:
     briefing_script = os.path.join(scripts_dir, "briefing.py")
     try:
         result = subprocess.run(
-            ["uv", "run", briefing_script],
+            [UV, "run", briefing_script],
             timeout=180,
             capture_output=True,
             text=True,
