@@ -16,6 +16,17 @@ fi
 
 cd "${SCRIPT_DIR}"
 
+# Prevent duplicate instances. If a previous invocation is still alive (e.g.
+# launchctl load was called while bootout was skipped), exit immediately so
+# launchd's KeepAlive doesn't stack a second bridge on top of the first.
+LOCK="/tmp/naturali-mqtt-bridge.pid"
+if [[ -f "${LOCK}" ]] && kill -0 "$(cat "${LOCK}")" 2>/dev/null; then
+  echo "bridge already running (PID $(cat "${LOCK}")), exiting duplicate."
+  exit 0
+fi
+echo $$ > "${LOCK}"
+trap 'rm -f "${LOCK}"' EXIT
+
 # Retry loop so transient network failures (route not ready at boot) don't
 # spin launchd's fast-respawn throttle. Backs off 10s between attempts.
 until "${HOME}/.local/bin/uv" run mqtt_to_hermes.py; do
