@@ -5,9 +5,10 @@
 # ///
 """Daily briefing generator for s/v Naturali.
 
-Fetches weather (Open-Meteo) and tides (CHS IWLS), passes a formatted data
-block to the Navigator agent via hermes, then routes the synthesized briefing
-to HA Lovelace (REST API), Nabu Voice (MQTT), and the logbook (SQLite).
+Fetches tides (CHS IWLS), passes a formatted data block to the Navigator agent
+via hermes (which calls weather-mcp itself for wind/swell/buoys), then routes
+the synthesized briefing to HA Lovelace (REST API), Nabu Voice (MQTT), and the
+logbook (SQLite).
 
 Usage:
     uv run scripts/briefing.py             # full run
@@ -43,8 +44,6 @@ if os.path.exists(_env_file):
                     os.environ[_k.strip()] = _v.strip().strip('"').strip("'")
 
 SIGNALK_URL = os.environ.get("SIGNALK_URL", "http://localhost:8765")
-OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
-OPEN_METEO_MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
 CHS_STATIONS_URL = "https://api-sine.dfo-mpo.gc.ca/api/v1/stations"
 CHS_DATA_URL = "https://api-sine.dfo-mpo.gc.ca/api/v1/stations/{station_id}/data"
 HA_URL = os.environ.get("HA_URL", "http://192.168.68.90:8123")
@@ -71,58 +70,6 @@ def fetch_position() -> tuple[float, float]:
     except Exception as e:
         log.warning("fetch_position failed (%s) — using mock position", e)
         return MOCK_LAT, MOCK_LON
-
-
-def fetch_weather(lat: float, lon: float) -> dict | None:
-    try:
-        r = httpx.get(OPEN_METEO_URL, params={
-            "latitude": lat, "longitude": lon,
-            "hourly": "windspeed_10m,winddirection_10m,windgusts_10m,pressure_msl",
-            "wind_speed_unit": "kn",
-            "forecast_days": 1,
-            "timezone": "UTC",
-        }, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-        h = datetime.now(timezone.utc).hour
-        hourly = data["hourly"]
-
-        # Pressure trend: compare to 6 hours ago
-        prior = max(0, h - 6)
-        pressure_delta = hourly["pressure_msl"][h] - hourly["pressure_msl"][prior]
-        trend = "rising" if pressure_delta > 1 else "falling" if pressure_delta < -1 else "steady"
-
-        # Afternoon wind (6 hours ahead, capped at last hour)
-        afternoon = min(23, h + 6)
-        afternoon_wind = round(hourly["windspeed_10m"][afternoon], 1)
-
-        result = {
-            "wind_knots": round(hourly["windspeed_10m"][h], 1),
-            "wind_direction_deg": round(hourly["winddirection_10m"][h]),
-            "wind_gust_knots": round(hourly["windgusts_10m"][h], 1),
-            "pressure_hpa": round(hourly["pressure_msl"][h], 1),
-            "pressure_trend": trend,
-            "afternoon_wind_knots": afternoon_wind,
-            "wave_height_m": None,
-        }
-    except Exception as e:
-        log.warning("fetch_weather failed: %s", e)
-        return None
-
-    # Marine wave height — optional, failure OK
-    try:
-        mr = httpx.get(OPEN_METEO_MARINE_URL, params={
-            "latitude": lat, "longitude": lon,
-            "hourly": "wave_height",
-            "forecast_days": 1,
-            "timezone": "UTC",
-        }, timeout=10)
-        mr.raise_for_status()
-        result["wave_height_m"] = round(mr.json()["hourly"]["wave_height"][h], 1)
-    except Exception:
-        pass  # wave height unavailable — not fatal
-
-    return result
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -184,42 +131,15 @@ def fetch_tides(lat: float, lon: float) -> dict | None:
         return None
 
 
-def _deg_to_compass(deg: float) -> str:
-    points = [
-        "North", "North-North-East", "North-East", "East-North-East",
-        "East", "East-South-East", "South-East", "South-South-East",
-        "South", "South-South-West", "South-West", "West-South-West",
-        "West", "West-North-West", "North-West", "North-North-West",
-    ]
-    return points[round(deg / 22.5) % 16]
-
-
 def build_prompt(
-    weather: dict | None,
     tides: dict | None,
     lat: float,
     lon: float,
 ) -> str:
-    parts: list[str] = ["Generate the daily briefing. External data pre-fetched for you:\n"]
-
-    if weather:
-        compass = _deg_to_compass(weather["wind_direction_deg"])
-        gust_note = ""
-        if weather["wind_gust_knots"] > weather["wind_knots"] + 5:
-            gust_note = f", gusting {weather['wind_gust_knots']}"
-        afternoon_note = ""
-        if weather["afternoon_wind_knots"] != weather["wind_knots"]:
-            direction = "building" if weather["afternoon_wind_knots"] > weather["wind_knots"] else "easing"
-            afternoon_note = f" ({direction} to {weather['afternoon_wind_knots']} knots this afternoon)"
-        wave_note = f"\nWave height: {weather['wave_height_m']}m" if weather["wave_height_m"] is not None else ""
-        parts.append(
-            f"WEATHER (Open-Meteo, vessel position):\n"
-            f"Wind: {weather['wind_knots']} knots {compass} ({weather['wind_direction_deg']}°){gust_note}{afternoon_note}"
-            f"{wave_note}\n"
-            f"Pressure: {weather['pressure_hpa']} hPa ({weather['pressure_trend']})"
-        )
-    else:
-        parts.append("WEATHER: unavailable — check forecast before departure")
+    parts: list[str] = [
+        f"Generate the daily briefing. Vessel position: {lat:.4f}, {lon:.4f}.\n"
+        "External data pre-fetched for you:\n"
+    ]
 
     if tides:
         lines = [f"TIDES ({tides['station_name']}, {tides['distance_km']}km from vessel):"]
@@ -232,6 +152,10 @@ def build_prompt(
 
     parts.append(
         "Use your SignalK MCP tools to get current vessel state (position, wind, battery, route).\n"
+        f"Call `mcp_weather_get_marine_forecast` with lat={lat:.4f}, lon={lon:.4f} for wind, "
+        "swell, and seas. If conditions look borderline (wind 18–25 kn, or swell mattering), "
+        "also call `mcp_weather_get_nearest_buoy_observations` to ground-truth against observed "
+        "conditions from nearby NDBC buoys.\n"
         "Then synthesize the daily briefing.\n"
         'Respond with valid JSON only: {"briefing_markdown": "...", "tts_extract": "..."}\n'
         "briefing_markdown: full markdown with sections ## Weather, ## Navigation, ## Vessel Systems\n"
@@ -335,15 +259,11 @@ def main(dry_run: bool = False) -> None:
     lat, lon = fetch_position()
     log.info("position: %.4f, %.4f", lat, lon)
 
-    weather = fetch_weather(lat, lon)
-    if weather is None:
-        log.warning("weather fetch failed — briefing will note unavailability")
-
     tides = fetch_tides(lat, lon)
     if tides is None:
         log.warning("tides fetch failed — briefing will note unavailability")
 
-    prompt = build_prompt(weather, tides, lat, lon)
+    prompt = build_prompt(tides, lat, lon)
 
     if dry_run:
         print(prompt)
