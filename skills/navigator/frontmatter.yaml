@@ -1,0 +1,9 @@
+name: navigator
+description: "Naturali Navigator agent — marine conditions, routing, battery-aware passage planning."
+version: 0.1.0
+author: Bryan Clark
+license: MIT
+platforms: [macos, linux]
+metadata:
+  hermes:
+    tags: [naturali, marine, navigation, signalk]

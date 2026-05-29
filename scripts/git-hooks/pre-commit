@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Keep the Navigator skill deployed and in sync on every commit.
+#
+# When a commit touches the Navigator source fragments (or the deploy script),
+# rebuild the runtime SKILL.md and regenerate prompts/navigator.md, then re-stage
+# the regenerated prompt so the committed doc matches what was deployed.
+#
+# Install: scripts/git-hooks/install.sh  (symlinks this into .git/hooks/)
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+changed="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+if printf '%s\n' "$changed" | grep -Eq '^(skills/navigator/|scripts/deploy-navigator\.sh$)'; then
+  echo "pre-commit: navigator source changed — deploying skill"
+  bash "$repo_root/scripts/deploy-navigator.sh"
+  # Re-stage the regenerated repo mirror so it lands in this commit.
+  git add "$repo_root/prompts/navigator.md"
+fi
