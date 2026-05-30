@@ -5,10 +5,11 @@
 # ///
 """Daily briefing generator for s/v Naturali.
 
-Fetches tides (CHS IWLS), passes a formatted data block to the Navigator agent
-via hermes (which calls weather-mcp itself for wind/swell/buoys), then routes
-the synthesized briefing to HA Lovelace (REST API), Nabu Voice (MQTT), and the
-logbook (SQLite).
+Fetches tides (CHS IWLS) and an hourly wind series, passes a data block to the
+Navigator agent via hermes (which calls weather-mcp itself for wind/swell/buoys),
+then renders the synthesized structured briefing into a self-contained HTML
+document. Routes outputs to HA (HTML scp'd to /config/www + a state sensor),
+Nabu Voice (MQTT TTS), and the logbook (SQLite, as deterministic markdown).
 
 Usage:
     uv run scripts/briefing.py             # full run
@@ -24,6 +25,7 @@ import math
 import os
 import sqlite3
 import subprocess
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -48,6 +50,7 @@ if os.path.exists(_env_file):
 SIGNALK_URL = os.environ.get("SIGNALK_URL", "http://localhost:8765")
 CHS_STATIONS_URL = "https://api-sine.dfo-mpo.gc.ca/api/v1/stations"
 CHS_DATA_URL = "https://api-sine.dfo-mpo.gc.ca/api/v1/stations/{station_id}/data"
+OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 HA_URL = os.environ.get("HA_URL", "http://192.168.68.90:8123")
 HA_TOKEN = os.environ.get("HOMEASSISTANT_TOKEN", "")
 LOGBOOK_DB_PATH = os.environ.get("LOGBOOK_DB_PATH", os.path.expanduser("~/.naturali/logbook.db"))
@@ -58,6 +61,9 @@ MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD")
 AGENT_SKILL = "naturali/navigator"
 MOCK_LAT = 48.76   # Boundary Pass fallback
 MOCK_LON = -123.05
+HA_SSH_HOST = os.environ.get("HA_SSH_HOST", "root@192.168.68.90")
+HA_WWW_PATH = "/config/www/briefing.html"
+_TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
 def fetch_position() -> tuple[float, float]:
@@ -133,6 +139,68 @@ def fetch_tides(lat: float, lon: float) -> dict | None:
         return None
 
 
+def fetch_tide_curve(lat: float, lon: float) -> list[dict] | None:
+    """Fetch the continuous (wlp) 15-min water-level series for the SVG tide curve.
+
+    Uses the same nearest-station selection as fetch_tides so the curve matches
+    the hi/lo table. Returns a list of {"time_utc", "height_m"} or None.
+    """
+    try:
+        sr = httpx.get(CHS_STATIONS_URL, timeout=15)
+        sr.raise_for_status()
+        station = _nearest_tide_station(lat, lon, sr.json())
+
+        today = datetime.now(timezone.utc).date()
+        tomorrow = today + timedelta(days=1)
+        dr = httpx.get(
+            CHS_DATA_URL.format(station_id=station["id"]),
+            params={
+                "time-series-code": "wlp",
+                "from": f"{today}T00:00:00Z",
+                "to": f"{tomorrow}T00:00:00Z",
+            },
+            timeout=15,
+        )
+        dr.raise_for_status()
+        return [
+            {"time_utc": e["eventDate"], "height_m": round(e["value"], 2)}
+            for e in dr.json()
+        ]
+    except Exception as e:
+        log.warning("fetch_tide_curve failed: %s", e)
+        return None
+
+
+def fetch_wind_curve(lat: float, lon: float) -> list[dict] | None:
+    """Fetch hourly wind speed (knots) for the SVG wind curve.
+
+    Isolated chart-only fetch via Open-Meteo — weather *synthesis* still goes
+    through the Navigator/weather-mcp. Returns [{"time", "knots"}] or None.
+    """
+    try:
+        r = httpx.get(
+            OPEN_METEO_URL,
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "hourly": "windspeed_10m",
+                "wind_speed_unit": "kn",
+                "forecast_days": 1,
+                "timezone": "auto",
+            },
+            timeout=15,
+        )
+        r.raise_for_status()
+        hourly = r.json()["hourly"]
+        return [
+            {"time": t, "knots": k}
+            for t, k in zip(hourly["time"], hourly["windspeed_10m"])
+        ]
+    except Exception as e:
+        log.warning("fetch_wind_curve failed: %s", e)
+        return None
+
+
 def build_prompt(
     tides: dict | None,
     lat: float,
@@ -168,6 +236,73 @@ def build_prompt(
     )
 
     return "\n\n".join(parts)
+
+
+def build_svg_curve(
+    wind: list[dict] | None,
+    tide: list[dict] | None,
+) -> str:
+    """Render an inline SVG dual-curve (wind knots + tide metres) over the day.
+
+    Pure function. Returns "" when there is nothing to draw. Each series is
+    normalised to its own min/max so both fit the viewBox; a flat series is
+    centred to avoid divide-by-zero.
+    """
+    if not wind and not tide:
+        return ""
+
+    W, H = 720, 200
+    PAD = 24
+
+    def _points(series: list[dict] | None, key: str) -> str:
+        if not series:
+            return ""
+        vals = [pt[key] for pt in series]
+        lo, hi = min(vals), max(vals)
+        span = hi - lo
+        n = len(series)
+        coords = []
+        for i, v in enumerate(vals):
+            x = PAD + (W - 2 * PAD) * (i / (n - 1 if n > 1 else 1))
+            if span == 0:
+                y = H / 2
+            else:
+                y = PAD + (H - 2 * PAD) * (1 - (v - lo) / span)
+            coords.append(f"{x:.1f},{y:.1f}")
+        return " ".join(coords)
+
+    parts = [
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
+        f'class="curve" role="img" aria-label="Wind and tide over the day">'
+    ]
+    for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
+        x = PAD + (W - 2 * PAD) * frac
+        parts.append(
+            f'<line x1="{x:.1f}" y1="{PAD}" x2="{x:.1f}" y2="{H - PAD}" '
+            f'stroke="#1e293b" stroke-width="1"/>'
+        )
+
+    tide_pts = _points(tide, "height_m")
+    if tide_pts:
+        parts.append(
+            f'<polyline points="{tide_pts}" fill="none" stroke="#fbbf24" '
+            f'stroke-width="2.5"/>'
+        )
+    wind_pts = _points(wind, "knots")
+    if wind_pts:
+        parts.append(
+            f'<polyline points="{wind_pts}" fill="none" stroke="#5eead4" '
+            f'stroke-width="2.5"/>'
+        )
+
+    parts.append(
+        f'<text x="{PAD}" y="16" fill="#5eead4" font-size="12">wind kn</text>'
+    )
+    parts.append(
+        f'<text x="{W - PAD - 48}" y="16" fill="#fbbf24" font-size="12">tide m</text>'
+    )
+    parts.append("</svg>")
+    return "".join(parts)
 
 
 def _is_response_line(line: str) -> bool:
@@ -227,27 +362,31 @@ def run_navigator(prompt: str) -> dict | None:
         return None
 
 
-_TEMPLATE_DIR = Path(__file__).parent / "templates"
-
-
-def render_html(briefing: dict, svg: str = "") -> str:
-    env = Environment(
-        loader=FileSystemLoader(str(_TEMPLATE_DIR)),
-        autoescape=select_autoescape(["html"]),
-    )
-    return env.get_template("briefing.html.j2").render(b=briefing, svg=svg)
-
-
-def publish_to_ha(briefing_markdown: str) -> None:
-    # HA state is capped at 255 chars — store full markdown in attributes instead
+def publish_to_ha(state: str = "generated") -> None:
     r = httpx.post(
         f"{HA_URL}/api/states/sensor.daily_briefing",
         headers={"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"},
-        json={"state": "generated", "attributes": {"content": briefing_markdown, "friendly_name": "Daily Briefing"}},
+        json={"state": state, "attributes": {"friendly_name": "Daily Briefing"}},
         timeout=10,
     )
     r.raise_for_status()
-    log.info("briefing published to HA")
+    log.info("briefing state published to HA")
+
+
+def publish_html(html: str) -> None:
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False) as f:
+        f.write(html)
+        tmp = f.name
+    try:
+        result = subprocess.run(
+            ["scp", "-o", "BatchMode=yes", tmp, f"{HA_SSH_HOST}:{HA_WWW_PATH}"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"scp failed: {result.stderr.strip()}")
+        log.info("briefing HTML published to HA www")
+    finally:
+        os.unlink(tmp)
 
 
 def publish_tts(tts_extract: str) -> None:
@@ -271,6 +410,60 @@ def archive_to_logbook(briefing_markdown: str, db_path: str, lat: float, lon: fl
     log.info("briefing archived to logbook")
 
 
+def render_html(briefing: dict, svg: str = "") -> str:
+    env = Environment(
+        loader=FileSystemLoader(str(_TEMPLATE_DIR)),
+        autoescape=select_autoescape(["html"]),
+    )
+    return env.get_template("briefing.html.j2").render(b=briefing, svg=svg)
+
+
+def render_markdown(briefing: dict) -> str:
+    """Render deterministic markdown from the structured briefing (logbook archive)."""
+    h = briefing.get("header", {})
+    lines = [f"# Daily Briefing — {h.get('date', '')}".rstrip()]
+    pos_dest = " · ".join(p for p in [h.get("position"), h.get("destination")] if p)
+    if pos_dest:
+        lines.append(pos_dest)
+
+    weather = briefing.get("weather", {})
+    lines.append("\n## Weather")
+    rows = weather.get("rows") or []
+    if rows:
+        lines.append("| Source | Wind | Pressure |")
+        lines.append("|--------|------|----------|")
+        for r in rows:
+            lines.append(f"| {r.get('source','')} | {r.get('wind','')} | {r.get('pressure','')} |")
+    if weather.get("analysis"):
+        lines.append(weather["analysis"])
+
+    navigation = briefing.get("navigation", {})
+    lines.append("\n## Navigation")
+    tide_rows = navigation.get("tide_rows") or []
+    if tide_rows:
+        lines.append("| Type | Time | Height |")
+        lines.append("|------|------|--------|")
+        for t in tide_rows:
+            lines.append(f"| {t.get('type','')} | {t.get('time','')} | {t.get('height','')} |")
+    if navigation.get("analysis"):
+        lines.append(navigation["analysis"])
+    if navigation.get("departure"):
+        lines.append(f"**Departure:** {navigation['departure']}")
+
+    vessel = briefing.get("vessel_systems", {})
+    lines.append("\n## Vessel Systems")
+    for note in vessel.get("notes") or []:
+        lines.append(f"- {note}")
+
+    advisories = briefing.get("advisories") or []
+    if advisories:
+        lines.append("\n## Advisories")
+        for a in advisories:
+            lines.append(f"- [{a.get('level','info')}] {a.get('text','')}")
+
+    return "\n".join(lines)
+
+
 def main(dry_run: bool = False) -> None:
     lat, lon = fetch_position()
     log.info("position: %.4f, %.4f", lat, lon)
@@ -290,11 +483,22 @@ def main(dry_run: bool = False) -> None:
         log.error("Navigator returned no response — aborting")
         return
 
-    briefing_markdown = response["briefing_markdown"]
+    structured = response["briefing"]
     tts_extract = response["tts_extract"]
 
+    wind = fetch_wind_curve(lat, lon)
+    tide_curve = fetch_tide_curve(lat, lon)
+    svg = build_svg_curve(wind, tide_curve)
+    html = render_html(structured, svg)
+    markdown = render_markdown(structured)
+
     try:
-        publish_to_ha(briefing_markdown)
+        publish_html(html)
+    except Exception as e:
+        log.error("publish_html failed: %s", e)
+
+    try:
+        publish_to_ha("generated")
     except Exception as e:
         log.error("publish_to_ha failed: %s", e)
 
@@ -304,7 +508,7 @@ def main(dry_run: bool = False) -> None:
         log.error("publish_tts failed: %s", e)
 
     try:
-        archive_to_logbook(briefing_markdown, LOGBOOK_DB_PATH, lat, lon)
+        archive_to_logbook(markdown, LOGBOOK_DB_PATH, lat, lon)
     except Exception as e:
         log.error("archive_to_logbook failed: %s", e)
 
