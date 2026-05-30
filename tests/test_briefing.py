@@ -204,6 +204,31 @@ def test_parse_briefing_response_invalid_returns_none():
     assert briefing.parse_briefing_response("") is None
 
 
+def test_build_svg_curve_renders_svg():
+    wind = [{"time": f"2026-05-30T{h:02d}:00", "knots": k}
+            for h, k in enumerate([5, 8, 12, 15, 11, 7])]
+    tide = [{"time_utc": f"2026-05-30T{h:02d}:00:00Z", "height_m": m}
+            for h, m in enumerate([1.0, 1.8, 2.6, 3.0, 2.4, 1.2])]
+    svg = briefing.build_svg_curve(wind, tide)
+    assert svg.startswith("<svg")
+    assert "</svg>" in svg
+    assert "polyline" in svg or "path" in svg
+
+
+def test_build_svg_curve_empty_returns_empty_string():
+    assert briefing.build_svg_curve([], []) == ""
+    assert briefing.build_svg_curve(None, None) == ""
+
+
+def test_render_markdown_from_structured():
+    md = briefing.render_markdown(STRUCTURED["briefing"])
+    assert "## Weather" in md
+    assert "## Navigation" in md
+    assert "## Vessel Systems" in md
+    assert "Ganges" in md            # header.destination
+    assert "Pressure falling" in md  # advisory text
+
+
 @respx.mock
 def test_publish_to_ha_posts_to_rest_api(monkeypatch):
     monkeypatch.setenv("HOMEASSISTANT_TOKEN", "test-token")

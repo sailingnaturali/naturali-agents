@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["httpx>=0.27", "paho-mqtt>=2.0"]
+# dependencies = ["httpx>=0.27", "paho-mqtt>=2.0", "jinja2>=3.1"]
 # ///
 """Daily briefing generator for s/v Naturali.
 
@@ -25,9 +25,11 @@ import os
 import sqlite3
 import subprocess
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import httpx
 import paho.mqtt.publish as mqtt_publish
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -223,6 +225,17 @@ def run_navigator(prompt: str) -> dict | None:
     except FileNotFoundError:
         log.error("hermes not found on PATH")
         return None
+
+
+_TEMPLATE_DIR = Path(__file__).parent / "templates"
+
+
+def render_html(briefing: dict, svg: str = "") -> str:
+    env = Environment(
+        loader=FileSystemLoader(str(_TEMPLATE_DIR)),
+        autoescape=select_autoescape(["html"]),
+    )
+    return env.get_template("briefing.html.j2").render(b=briefing, svg=svg)
 
 
 def publish_to_ha(briefing_markdown: str) -> None:
