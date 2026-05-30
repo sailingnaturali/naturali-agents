@@ -11,6 +11,20 @@ from pathlib import Path
 import briefing
 
 
+STRUCTURED = {
+    "briefing": {
+        "header": {"date": "May 30", "position": "Boundary Pass", "destination": "Ganges"},
+        "weather": {"rows": [{"source": "Forecast", "wind": "5 kn N", "pressure": "1015 steady"}],
+                    "analysis": "Settled."},
+        "navigation": {"tide_rows": [{"type": "High", "time": "12:38", "height": "3.8 m"}],
+                       "departure": "0900", "analysis": "Slack favours morning."},
+        "vessel_systems": {"notes": ["Black water 72% — pump out at Ganges."]},
+        "advisories": [{"level": "caution", "text": "Pressure falling — recheck in 1h."}],
+    },
+    "tts_extract": "Good morning. Light northerlies, settled.",
+}
+
+
 @respx.mock
 def test_fetch_position_returns_lat_lon():
     respx.get(
@@ -125,8 +139,17 @@ def test_build_prompt_contains_tides_and_weather_tool_instruction():
     assert "-123.0500" in prompt
     # Navigator is instructed to fetch weather itself via the MCP tool
     assert "mcp_weather_get_marine_forecast" in prompt
-    assert "briefing_markdown" in prompt
+    assert "briefing_markdown" not in prompt
+    assert '"briefing"' in prompt
     assert "tts_extract" in prompt
+
+
+def test_build_prompt_requests_structured_contract():
+    prompt = briefing.build_prompt(None, 48.76, -123.05)
+    assert "mcp_weather_get_marine_forecast" in prompt
+    assert '"briefing"' in prompt
+    assert "advisories" in prompt
+    assert "briefing_markdown" not in prompt
 
 
 def test_build_prompt_tides_unavailable():
@@ -136,7 +159,7 @@ def test_build_prompt_tides_unavailable():
 
 
 def test_is_response_line_filters_noise():
-    assert briefing._is_response_line('{"briefing_markdown": "test"}') is True
+    assert briefing._is_response_line('{"briefing": {"header":{}}}') is True
     assert briefing._is_response_line("🔧 calling mcp_signalk_read_sensor") is False
     assert briefing._is_response_line("⚠ context limit approaching") is False
     assert briefing._is_response_line("session_id: abc123") is False
@@ -144,47 +167,41 @@ def test_is_response_line_filters_noise():
     assert briefing._is_response_line("  ") is False
 
 
-def test_parse_briefing_response_clean_json():
-    text = '{"briefing_markdown": "## Daily Briefing", "tts_extract": "Good morning."}'
-    result = briefing.parse_briefing_response(text)
+def test_parse_briefing_response_structured():
+    import json as _j
+    result = briefing.parse_briefing_response(_j.dumps(STRUCTURED))
     assert result is not None
-    assert result["briefing_markdown"] == "## Daily Briefing"
-    assert result["tts_extract"] == "Good morning."
+    assert result["briefing"]["header"]["destination"] == "Ganges"
+    assert result["tts_extract"].startswith("Good morning")
+
+
+def test_parse_briefing_response_rejects_old_shape():
+    text = '{"briefing_markdown": "## Weather", "tts_extract": "x"}'
+    assert briefing.parse_briefing_response(text) is None
+
+
+def test_parse_briefing_response_strips_code_fence_structured():
+    import json as _j
+    text = "```json\n" + _j.dumps(STRUCTURED) + "\n```"
+    result = briefing.parse_briefing_response(text)
+    assert result is not None and result["tts_extract"].startswith("Good morning")
 
 
 def test_parse_briefing_response_with_preamble_noise():
+    import json as _j
     text = (
         "🔧 calling mcp_signalk_read_sensor\n"
         "session_id: abc\n"
-        '{"briefing_markdown": "## Briefing", "tts_extract": "Wind is 12 knots."}'
+        + _j.dumps(STRUCTURED)
     )
     result = briefing.parse_briefing_response(text)
     assert result is not None
-    assert result["tts_extract"] == "Wind is 12 knots."
-
-
-def test_parse_briefing_response_multiline_json():
-    text = '{\n  "briefing_markdown": "## B",\n  "tts_extract": "Good morning."\n}'
-    result = briefing.parse_briefing_response(text)
-    assert result is not None
-    assert result["tts_extract"] == "Good morning."
+    assert result["tts_extract"].startswith("Good morning")
 
 
 def test_parse_briefing_response_invalid_returns_none():
     assert briefing.parse_briefing_response("not json at all") is None
     assert briefing.parse_briefing_response("") is None
-
-
-def test_parse_briefing_response_strips_code_fence():
-    text = (
-        "```json\n"
-        '{"briefing_markdown": "## Weather\\nAll clear.", "tts_extract": "Wind is 5 knots."}\n'
-        "```"
-    )
-    result = briefing.parse_briefing_response(text)
-    assert result is not None
-    assert result["tts_extract"] == "Wind is 5 knots."
-    assert result["briefing_markdown"] == "## Weather\nAll clear."
 
 
 @respx.mock
@@ -244,5 +261,6 @@ def test_dry_run_prints_prompt_without_calling_hermes():
     assert "TIDES" in result.stdout or "unavailable" in result.stdout
     # Navigator is now told to fetch weather itself via the MCP tool
     assert "mcp_weather_get_marine_forecast" in result.stdout
+    assert '"briefing"' in result.stdout
     # hermes should NOT have been called (no 🔧 tool-call lines)
     assert "🔧" not in result.stdout

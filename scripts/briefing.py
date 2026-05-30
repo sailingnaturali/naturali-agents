@@ -154,12 +154,15 @@ def build_prompt(
         "Use your SignalK MCP tools to get current vessel state (position, wind, battery, route).\n"
         f"Call `mcp_weather_get_marine_forecast` with lat={lat:.4f}, lon={lon:.4f} for wind, "
         "swell, and seas. If conditions look borderline (wind 18–25 kn, or swell mattering), "
-        "also call `mcp_weather_get_nearest_buoy_observations` to ground-truth against observed "
-        "conditions from nearby NDBC buoys.\n"
-        "Then synthesize the daily briefing.\n"
-        'Respond with valid JSON only: {"briefing_markdown": "...", "tts_extract": "..."}\n'
-        "briefing_markdown: full markdown with sections ## Weather, ## Navigation, ## Vessel Systems\n"
-        "tts_extract: spoken summary, max 75 words, no markdown"
+        "also call `mcp_weather_get_nearest_buoy_observations` to ground-truth.\n"
+        "Then synthesize the daily briefing and respond with valid JSON only:\n"
+        '{"briefing": {"header": {"date","position","destination"}, '
+        '"weather": {"rows":[{"source","wind","pressure"}],"analysis"}, '
+        '"navigation": {"tide_rows":[{"type","time","height"}],"departure","analysis"}, '
+        '"vessel_systems": {"notes":[...]}, '
+        '"advisories":[{"level":"info|caution|warning","text"}]}, '
+        '"tts_extract": "..."}\n'
+        "tts_extract: spoken summary, max 75 words, no markdown."
     )
 
     return "\n\n".join(parts)
@@ -195,7 +198,7 @@ def parse_briefing_response(text: str) -> dict | None:
 
     try:
         data = json.loads(cleaned)
-        if "briefing_markdown" in data and "tts_extract" in data:
+        if "briefing" in data and "tts_extract" in data:
             return data
         return None
     except json.JSONDecodeError:
