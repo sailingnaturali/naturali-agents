@@ -199,6 +199,15 @@ def test_parse_briefing_response_with_preamble_noise():
     assert result["tts_extract"].startswith("Good morning")
 
 
+def test_parse_briefing_response_strips_pseudotag_preamble():
+    # qwen2.5 occasionally prefixes the object with a stray pseudo-tag line.
+    import json as _j
+    text = "<no_preliminary nor_results_from_me>\n" + _j.dumps(STRUCTURED)
+    result = briefing.parse_briefing_response(text)
+    assert result is not None
+    assert result["tts_extract"].startswith("Good morning")
+
+
 def test_parse_briefing_response_invalid_returns_none():
     assert briefing.parse_briefing_response("not json at all") is None
     assert briefing.parse_briefing_response("") is None

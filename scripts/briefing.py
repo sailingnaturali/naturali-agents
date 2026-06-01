@@ -225,13 +225,18 @@ def build_prompt(
         f"Call `mcp_weather_get_marine_forecast` with lat={lat:.4f}, lon={lon:.4f} for wind, "
         "swell, and seas. If conditions look borderline (wind 18–25 kn, or swell mattering), "
         "also call `mcp_weather_get_nearest_buoy_observations` to ground-truth.\n"
-        "Then synthesize the daily briefing and respond with valid JSON only:\n"
-        '{"briefing": {"header": {"date","position","destination"}, '
-        '"weather": {"rows":[{"source","wind","pressure"}],"analysis"}, '
-        '"navigation": {"tide_rows":[{"type","time","height"}],"departure","analysis"}, '
-        '"vessel_systems": {"notes":[...]}, '
-        '"advisories":[{"level":"info|caution|warning","text"}]}, '
-        '"tts_extract": "..."}\n'
+        "Then synthesize the daily briefing. Respond with ONE valid JSON object and "
+        "nothing else — no preamble, no markdown fences, no template placeholders. "
+        "Fill every field with real values from the data. Match this shape exactly:\n"
+        '{"briefing": {'
+        '"header": {"date": "June 1", "position": "Oak Bay", "destination": "Sidney"}, '
+        '"weather": {"rows": [{"source": "Forecast", "wind": "5 kn W", "pressure": "1018 steady"}], '
+        '"analysis": "Settled under high pressure."}, '
+        '"navigation": {"tide_rows": [{"type": "High", "time": "12:38", "height": "3.8 m"}], '
+        '"departure": "0900 to carry the flood", "analysis": "Slack favours mid-morning."}, '
+        '"vessel_systems": {"notes": ["Black water 72% — pump out at Sidney."]}, '
+        '"advisories": [{"level": "info", "text": "Battery 68% — full range available."}]}, '
+        '"tts_extract": "Good morning. Light westerlies, settled. Depart by 0900 for the flood."}\n'
         "tts_extract: spoken summary, max 75 words, no markdown."
     )
 
@@ -333,14 +338,27 @@ def parse_briefing_response(text: str) -> dict | None:
             inner = inner[: inner.rfind("```")]
         cleaned = inner.strip()
 
-    try:
-        data = json.loads(cleaned)
+    # Local models sometimes wrap the JSON in stray preamble/postamble or
+    # pseudo-tags (e.g. "<no_preliminary nor_results_from_me>"). Fall back to
+    # the outermost {...} span so the object survives surrounding noise.
+    candidates = [cleaned]
+    first, last = cleaned.find("{"), cleaned.rfind("}")
+    if first != -1 and last > first:
+        span = cleaned[first : last + 1]
+        if span != cleaned:
+            candidates.append(span)
+
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
         if "briefing" in data and "tts_extract" in data:
             return data
         return None
-    except json.JSONDecodeError:
-        log.warning("parse_briefing_response: not valid JSON: %r", cleaned[:200])
-        return None
+
+    log.warning("parse_briefing_response: not valid JSON: %r", cleaned[:200])
+    return None
 
 
 def run_navigator(prompt: str) -> dict | None:
