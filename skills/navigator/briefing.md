@@ -10,26 +10,24 @@ When asked to generate the daily briefing, external weather and tide data will b
 
 ### Section ownership — each piece of data appears exactly once
 
-| Data | Section |
-|------|---------|
-| Forecast weather (wind, swell, pressure) | ## Weather |
-| Onboard wind + pressure (with sailing interpretation) | ## Weather |
-| Tides, passage timing, route | ## Navigation |
-| Battery (only if actionable) | ## Navigation |
-| Tanks, watermaker, mechanical | ## Vessel Systems |
+| Data | Field |
+|------|-------|
+| Forecast weather (wind, swell, pressure) | `weather.rows` + `weather.analysis` |
+| Onboard wind + pressure (with sailing interpretation) | `weather.rows` + `weather.analysis` |
+| Tides, passage timing, route | `navigation` |
+| Battery (only if actionable) | `navigation.analysis` |
+| Tanks, watermaker, mechanical | `vessel_systems.notes` |
 
-Battery and pressure are NEVER repeated in ## Vessel Systems if already covered above.
+Battery and pressure are NEVER repeated in `vessel_systems` if already covered above.
 
-### Format: tables for data, prose for analysis
+### Format: structured rows for data, prose for analysis
 
-In each section: put raw numbers in a markdown table, then 1–2 sentences of analysis below it. Do not embed raw numbers in prose sentences.
+Put raw numbers in the structured `rows` / `tide_rows` arrays, and keep the `analysis` fields to 1–2 sentences. Do not embed raw numbers in the analysis prose — the numbers live in the rows.
 
-Example Weather table:
-```
-| Source | Wind | Pressure |
-|--------|------|----------|
-| Forecast | 5 kn North | 1015 hPa steady |
-| Onboard | 16 kn | 1002 hPa |
+Example weather rows (these become `weather.rows`):
+```json
+[ { "source": "Forecast", "wind": "5 kn North", "pressure": "1015 hPa steady" },
+  { "source": "Onboard",  "wind": "16 kn",       "pressure": "1002 hPa" } ]
 ```
 
 ### Pressure intelligence
@@ -72,13 +70,36 @@ Do not compare onboard wind to forecast wind. Forecasts are regional; onboard wi
 - Full freshwater tank → no mention. 40% freshwater with no watermaker run planned → mention.
 - Black water >70% → always mention in Vessel Systems with nearest pump-out suggestion.
 
-Respond with valid JSON only — no preamble, no explanation, just the JSON object:
+### Output contract — structured fields
+
+Respond with valid JSON only — no preamble, no explanation, just the JSON object. Do **not** emit markdown prose; populate the structured fields below. The briefing script renders these into the on-screen HTML and a logbook archive.
 
 ```json
 {
-  "briefing_markdown": "## Weather\n...\n\n## Navigation\n...\n\n## Vessel Systems\n...",
+  "briefing": {
+    "header": { "date": "...", "position": "...", "destination": "..." },
+    "weather": {
+      "rows": [ { "source": "Forecast", "wind": "5 kn N", "pressure": "1015 steady" },
+                { "source": "Onboard",  "wind": "16 kn",    "pressure": "1002" } ],
+      "analysis": "1–2 sentences interpreting the ONBOARD reading."
+    },
+    "navigation": {
+      "tide_rows": [ { "type": "High", "time": "12:38", "height": "3.8 m" } ],
+      "departure": "Departure-time recommendation tied to tides/route.",
+      "analysis": "Passage timing, tidal gates, battery range if actionable."
+    },
+    "vessel_systems": { "notes": [ "Actionable note, e.g. 'Black water 72% — pump out at Ganges.'" ] },
+    "advisories": [ { "level": "info|caution|warning", "text": "..." } ]
+  },
   "tts_extract": "Good morning. [weather headline]. [departure note]. [one priority advisory if any]."
 }
 ```
+
+Field mapping for the rules above:
+- Forecast/onboard wind + pressure rows → `weather.rows`; the sailing interpretation → `weather.analysis`.
+- Tides, passage timing, route, and actionable battery → `navigation` (table rows + `analysis`/`departure`).
+- Tanks, watermaker, mechanical → `vessel_systems.notes`.
+- The pressure/wind **recheck and shelter triggers** (the specific time + decision trigger) → an entry in `advisories` with the appropriate `level` (`caution` for a recheck, `warning` for shelter-plan risk). Routine/settled conditions → omit the advisory entirely.
+- Section ownership still holds: each datum appears in exactly one place. Only include what is actionable; leave a field's list empty (`[]`) when there is nothing to say.
 
 `tts_extract` must be 75 words or fewer. No markdown in `tts_extract`.
