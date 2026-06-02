@@ -130,7 +130,9 @@
     <header class="band">
       <p class="title">Daily Briefing</p>
       <div class="meta">
-        {{ b.header.date or "" }}<span class="sep">·</span>{{ b.header.position or "" }}<span class="sep">·</span>{{ b.header.destination or "" }}
+        {% for p in [b.header.date, b.header.position, b.header.destination] | select | list -%}
+          {% if not loop.first %}<span class="sep">·</span>{% endif %}{{ p }}
+        {%- endfor %}
       </div>
     </header>
 

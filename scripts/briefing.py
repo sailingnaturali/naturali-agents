@@ -648,6 +648,10 @@ def main(dry_run: bool = False) -> None:
         raise SystemExit(1)
 
     structured = prune_empty(response["briefing"])
+    # The briefing date is deterministic — set it ourselves rather than trusting
+    # the model (the structured-output repair often leaves header fields blank).
+    now = datetime.now()
+    structured.setdefault("header", {})["date"] = f"{now:%B} {now.day}"
     tts_extract = response["tts_extract"]
 
     wind = fetch_wind_curve(lat, lon)
