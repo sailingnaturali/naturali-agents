@@ -28,6 +28,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import NamedTuple
 
 import httpx
 import paho.mqtt.publish as mqtt_publish
@@ -80,7 +81,7 @@ SCHEMA_EXAMPLE = (
     '"analysis": "Settled under high pressure."}, '
     '"navigation": {"tide_rows": [{"type": "High", "time": "12:38", "height": "3.8 m"}], '
     '"departure": "0900 to carry the flood", "analysis": "Slack favours mid-morning."}, '
-    '"vessel_systems": {"notes": ["Black water 72% — pump out at Sidney."]}, '
+    '"vessel_systems": {"notes": ["Engine hours logged; bilge dry."]}, '
     '"advisories": [{"level": "info", "text": "Battery 68% — full range available."}]}, '
     '"tts_extract": "Good morning. Light westerlies, settled. Depart by 0900 for the flood."}'
 )
@@ -136,6 +137,19 @@ BRIEFING_JSON_SCHEMA = {
     },
     "required": ["briefing", "tts_extract"],
 }
+
+
+class TankSpec(NamedTuple):
+    key: str          # SignalK tanks/<key> path segment
+    label: str
+    direction: str    # "fill" → concern is reaching 100%; "drain" → reaching 0%
+    action: str       # guidance text shown with the ETA
+
+
+TANKS = [
+    TankSpec("blackWater", "Black Water", "fill", "pump out"),
+    TankSpec("freshWater", "Fresh Water", "drain", "run the water maker / fill soon"),
+]
 
 
 def fetch_position() -> tuple[float, float]:
@@ -690,6 +704,182 @@ def archive_to_logbook(briefing_markdown: str, db_path: str, lat: float, lon: fl
     log.info("briefing archived to logbook")
 
 
+_TANK_DDL = """CREATE TABLE IF NOT EXISTS tank_readings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tank TEXT NOT NULL,
+    level REAL NOT NULL,
+    timestamp TEXT NOT NULL
+)"""
+
+
+def fetch_tank_level(key: str) -> float | None:
+    """Current level (percent 0-100) for a SignalK tank type, or None if absent."""
+    try:
+        r = httpx.get(f"{SIGNALK_URL}/signalk/v1/api/vessels/self/tanks/{key}", timeout=5)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        log.warning("fetch_tank_level(%s) unavailable (%s)", key, e)
+        return None
+    for instance in (data or {}).values():
+        cl = instance.get("currentLevel") if isinstance(instance, dict) else None
+        val = cl.get("value") if isinstance(cl, dict) else None
+        if isinstance(val, (int, float)):
+            return round(val * 100, 1)
+    return None
+
+
+def record_tank_reading(key: str, level_pct: float, db_path: str | None = None) -> None:
+    with sqlite3.connect(db_path or LOGBOOK_DB_PATH) as conn:
+        conn.execute(_TANK_DDL)
+        conn.execute(
+            "INSERT INTO tank_readings (tank, level, timestamp) VALUES (?, ?, ?)",
+            (key, level_pct, datetime.now(timezone.utc).isoformat()),
+        )
+
+
+def tank_history(key: str, limit: int = 30, db_path: str | None = None) -> list[tuple[str, float]]:
+    """Recent (timestamp_iso, level) rows for a tank, oldest→newest."""
+    try:
+        with sqlite3.connect(db_path or LOGBOOK_DB_PATH) as conn:
+            conn.execute(_TANK_DDL)
+            rows = conn.execute(
+                "SELECT timestamp, level FROM tank_readings WHERE tank = ? "
+                "ORDER BY timestamp DESC LIMIT ?",
+                (key, limit),
+            ).fetchall()
+        return [(ts, lvl) for ts, lvl in reversed(rows)]
+    except Exception as e:
+        log.warning("tank_history(%s) failed (%s)", key, e)
+        return []
+
+
+def project_threshold(history: list[tuple[str, float]], direction: str) -> dict | None:
+    """Linear-fit ETA to the critical level (100% for fill, 0% for drain).
+
+    Returns {"eta": datetime(UTC), "days": float, "rate_pct_day": float}, or None
+    when there are <2 readings or the trend runs the safe way / is flat.
+    """
+    if len(history) < 2:
+        return None
+    times = [datetime.fromisoformat(ts) for ts, _ in history]
+    t0 = times[0]
+    xs = [(t - t0).total_seconds() / 86400 for t in times]   # days
+    ys = [lvl for _, lvl in history]
+    n = len(xs)
+    mx, my = sum(xs) / n, sum(ys) / n
+    denom = sum((x - mx) ** 2 for x in xs)
+    if denom == 0:
+        return None
+    slope = sum((xs[i] - mx) * (ys[i] - my) for i in range(n)) / denom  # %/day
+    if (direction == "fill" and slope <= 0) or (direction == "drain" and slope >= 0):
+        return None
+    target = 100.0 if direction == "fill" else 0.0
+    days = (target - ys[-1]) / slope
+    if days <= 0:
+        return None
+    return {"eta": times[-1] + timedelta(days=days), "days": days, "rate_pct_day": slope}
+
+
+def _sample_tank(spec: TankSpec) -> tuple[float, list[tuple[str, float]], dict | None]:
+    """Synthetic last-7-days trend for the 'awaiting sensor' placeholder."""
+    now = datetime.now(timezone.utc)
+    current = 72.0 if spec.direction == "fill" else 38.0
+    daily = 5.0 if spec.direction == "fill" else -6.0   # %/day toward the concern
+    history = [
+        ((now - timedelta(days=age)).isoformat(), max(0.0, min(100.0, current - daily * age)))
+        for age in range(7, -1, -1)
+    ]
+    return current, history, project_threshold(history, spec.direction)
+
+
+def _tank_color(direction: str, level: float) -> str:
+    severity = level / 100 if direction == "fill" else 1 - level / 100
+    if severity >= 0.85:
+        return "#ef4444"
+    if severity >= 0.6:
+        return "#fbbf24"
+    return "#5eead4"
+
+
+def _fmt_date(dt: datetime) -> str:
+    d = dt.astimezone()
+    return f"{d.strftime('%b')} {d.day}"
+
+
+def build_tank_panel(spec: TankSpec, level: float | None, history: list[tuple[str, float]],
+                     projection: dict | None, placeholder: bool = False) -> str:
+    """Inline SVG: a fill bar plus a framed mini-chart — last 7 days of history on
+    the left, a 'now' marker at the centre, and a dashed projection to the FULL/
+    EMPTY threshold on the right with an ETA date. Pure; "" when no level."""
+    if level is None:
+        return ""
+    W, H = 720, 150
+    color = _tank_color(spec.direction, level)
+    parts = [
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
+        f'class="tank" role="img" aria-label="{spec.label} {level:.0f} percent">'
+    ]
+    parts.append(f'<text x="0" y="14" fill="#94a3b8" font-size="12" letter-spacing="1.2">{spec.label.upper()}</text>')
+    parts.append(f'<text x="{W}" y="15" fill="{color}" font-size="17" font-weight="700" text-anchor="end">{level:.0f}%</text>')
+    # fill bar
+    by, bh = 24, 18
+    parts.append(f'<rect x="0" y="{by}" width="{W}" height="{bh}" rx="6" fill="#1e293b"/>')
+    parts.append(f'<rect x="0" y="{by}" width="{max(3, W * level / 100):.1f}" height="{bh}" rx="6" fill="{color}"/>')
+    # eta / action sentence
+    if placeholder:
+        sub = "sample · awaiting sensor"
+    elif projection:
+        when = "full" if spec.direction == "fill" else "empty"
+        d = projection["days"]
+        amount = "<1 day" if d < 1 else f"{round(d)} day{'s' if round(d) != 1 else ''}"
+        sub = f"≈ {when} in {amount} · {spec.action}"
+    else:
+        sub = "collecting trend"
+    parts.append(f'<text x="0" y="58" fill="{color}" font-size="13">{sub}</text>')
+
+    # framed mini-chart: history (left) | now (centre) | projection (right)
+    CL, CT, CB = 38, 72, 132
+    cx = (CL + W) / 2
+    target = 100.0 if spec.direction == "fill" else 0.0
+
+    def CY(v: float) -> float:
+        return CB - (CB - CT) * (v / 100)
+
+    # frame + y reference (0% / 100%)
+    parts.append(f'<line x1="{CL}" y1="{CY(100):.1f}" x2="{W}" y2="{CY(100):.1f}" stroke="#1e293b" stroke-width="1"/>')
+    parts.append(f'<line x1="{CL}" y1="{CY(0):.1f}" x2="{W}" y2="{CY(0):.1f}" stroke="#1e293b" stroke-width="1"/>')
+    parts.append(f'<text x="{CL - 6}" y="{CY(100) + 4:.1f}" fill="#475569" font-size="10" text-anchor="end">100</text>')
+    parts.append(f'<text x="{CL - 6}" y="{CY(0) + 4:.1f}" fill="#475569" font-size="10" text-anchor="end">0</text>')
+    # threshold word at its line
+    parts.append(f'<text x="{CL + 4}" y="{CY(target) + (12 if spec.direction == "fill" else -5):.1f}" fill="{color}" font-size="10" letter-spacing="1">{"FULL" if spec.direction == "fill" else "EMPTY"}</text>')
+    # now marker (centre)
+    parts.append(f'<line x1="{cx:.1f}" y1="{CT}" x2="{cx:.1f}" y2="{CB}" stroke="#334155" stroke-width="1" stroke-dasharray="3 3"/>')
+    parts.append(f'<text x="{cx:.1f}" y="{CT - 3:.1f}" fill="#94a3b8" font-size="10" text-anchor="middle">now</text>')
+
+    pts = [(datetime.fromisoformat(ts), lvl) for ts, lvl in history]
+    if pts:
+        cutoff = pts[-1][0] - timedelta(days=7)
+        pts7 = [p for p in pts if p[0] >= cutoff] or pts
+        t_start, t_now = pts7[0][0], pts7[-1][0]
+        tspan = (t_now - t_start).total_seconds() or 1.0
+
+        def HX(t: datetime) -> float:
+            return CL + (cx - CL) * ((t - t_start).total_seconds() / tspan)
+
+        hline = " ".join(f"{HX(t):.1f},{CY(l):.1f}" for t, l in pts7)
+        parts.append(f'<polyline points="{hline}" fill="none" stroke="{color}" stroke-width="2.5"/>')
+        parts.append(f'<circle cx="{cx:.1f}" cy="{CY(level):.1f}" r="3.5" fill="{color}"/>')
+        # x labels: start date (left) and eta date (right)
+        parts.append(f'<text x="{CL}" y="146" fill="#64748b" font-size="10">{_fmt_date(t_start)}</text>')
+        if projection:
+            parts.append(f'<line x1="{cx:.1f}" y1="{CY(level):.1f}" x2="{W}" y2="{CY(target):.1f}" stroke="{color}" stroke-width="1.8" stroke-dasharray="5 4" opacity="0.8"/>')
+            parts.append(f'<circle cx="{W}" cy="{CY(target):.1f}" r="3.5" fill="{color}"/>')
+            parts.append(f'<text x="{W}" y="146" fill="{color}" font-size="10" text-anchor="end">{_fmt_date(projection["eta"])}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def prune_empty(briefing: dict) -> dict:
     """Drop all-empty rows/notes a model may pad arrays with, so the HTML never
     renders blank table lines or empty bullets. Mutates and returns briefing."""
@@ -712,13 +902,15 @@ def prune_empty(briefing: dict) -> dict:
     return briefing
 
 
-def render_html(briefing: dict, wind: dict | None = None, compass_svg: str = "", tide_svg: str = "") -> str:
+def render_html(briefing: dict, wind: dict | None = None, compass_svg: str = "",
+                tide_svg: str = "", tank_panels: list[str] | None = None) -> str:
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),
         autoescape=select_autoescape(["html"]),
     )
     return env.get_template("briefing.html.j2").render(
-        b=briefing, wind=wind, compass_svg=compass_svg, tide_svg=tide_svg
+        b=briefing, wind=wind, compass_svg=compass_svg, tide_svg=tide_svg,
+        tank_panels=tank_panels or [],
     )
 
 
@@ -814,7 +1006,23 @@ def main(dry_run: bool = False) -> None:
         if current_wind else ""
     )
     tide_svg = build_tide_chart(tide_curve)
-    html = render_html(structured, current_wind, compass_svg, tide_svg)
+
+    tank_panels = []
+    for spec in TANKS:
+        try:
+            level = fetch_tank_level(spec.key)
+            placeholder = level is None
+            if placeholder:
+                level, hist, proj = _sample_tank(spec)
+            else:
+                record_tank_reading(spec.key, level)
+                hist = tank_history(spec.key)
+                proj = project_threshold(hist, spec.direction)
+            tank_panels.append(build_tank_panel(spec, level, hist, proj, placeholder=placeholder))
+        except Exception as e:
+            log.warning("tank panel %s failed: %s", spec.key, e)
+
+    html = render_html(structured, current_wind, compass_svg, tide_svg, tank_panels)
     markdown = render_markdown(structured)
 
     html_ok = True

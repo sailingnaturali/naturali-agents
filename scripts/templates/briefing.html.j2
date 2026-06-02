@@ -131,6 +131,9 @@
     .wd-row b { color: var(--text); font-weight: 600; }
     .wind-dial { flex: 0 0 150px; }
     .panel svg { max-width: 100%; height: auto; display: block; }
+    .tank-panel { margin: 0.4rem 0 1.1rem; }
+    .tank-panel:last-child { margin-bottom: 0.3rem; }
+    .tank-panel svg { max-width: 100%; height: auto; display: block; }
     .advisories { margin-top: 1.25rem; display: grid; gap: 0.7rem; }
     .advisory {
       border-radius: 10px;
@@ -215,11 +218,16 @@
 
       <section class="card">
         <h2>Vessel Systems</h2>
+        {% for panel in tank_panels %}
+        <div class="tank-panel">{{ panel|safe }}</div>
+        {% endfor %}
+        {% if b.vessel_systems.notes %}
         <ul>
           {% for note in b.vessel_systems.notes or [] %}
           <li>{{ note }}</li>
           {% endfor %}
         </ul>
+        {% endif %}
       </section>
     </div>
 
