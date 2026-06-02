@@ -59,6 +59,11 @@ PORT = int(os.environ.get("MQTT_PORT", "1883"))
 MQTT_USER = os.environ.get("MQTT_USER")
 MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD")
 AGENT_SKILL = "naturali/navigator"
+# Direct Ollama endpoint for the structured-output repair pass (bypasses hermes;
+# reformatting needs no tools). qwen2.5:72b is the most capable local model;
+# grammar-constrained decoding guarantees valid JSON regardless.
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
+OLLAMA_REPAIR_MODEL = os.environ.get("OLLAMA_REPAIR_MODEL", "qwen2.5:72b")
 MOCK_LAT = 48.76   # Boundary Pass fallback
 MOCK_LON = -123.05
 HA_SSH_HOST = os.environ.get("HA_SSH_HOST", "root@192.168.68.90")
@@ -78,6 +83,58 @@ SCHEMA_EXAMPLE = (
     '"advisories": [{"level": "info", "text": "Battery 68% — full range available."}]}, '
     '"tts_extract": "Good morning. Light westerlies, settled. Depart by 0900 for the flood."}'
 )
+
+# JSON Schema form of SCHEMA_EXAMPLE — fed to Ollama's `format` so the repair pass
+# is grammar-constrained to emit exactly this shape (can't return prose).
+_ROW = lambda props: {  # noqa: E731
+    "type": "array",
+    "items": {"type": "object", "properties": props, "required": list(props)},
+}
+BRIEFING_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "briefing": {
+            "type": "object",
+            "properties": {
+                "header": {
+                    "type": "object",
+                    "properties": {
+                        "date": {"type": "string"},
+                        "position": {"type": "string"},
+                        "destination": {"type": "string"},
+                    },
+                    "required": ["date", "position", "destination"],
+                },
+                "weather": {
+                    "type": "object",
+                    "properties": {
+                        "rows": _ROW({"source": {"type": "string"}, "wind": {"type": "string"}, "pressure": {"type": "string"}}),
+                        "analysis": {"type": "string"},
+                    },
+                    "required": ["rows", "analysis"],
+                },
+                "navigation": {
+                    "type": "object",
+                    "properties": {
+                        "tide_rows": _ROW({"type": {"type": "string"}, "time": {"type": "string"}, "height": {"type": "string"}}),
+                        "departure": {"type": "string"},
+                        "analysis": {"type": "string"},
+                    },
+                    "required": ["tide_rows", "departure", "analysis"],
+                },
+                "vessel_systems": {
+                    "type": "object",
+                    "properties": {"notes": {"type": "array", "items": {"type": "string"}}},
+                    "required": ["notes"],
+                },
+                "advisories": _ROW({"level": {"type": "string"}, "text": {"type": "string"}}),
+            },
+            "required": ["header", "weather", "navigation", "vessel_systems", "advisories"],
+        },
+        "tts_extract": {"type": "string"},
+    },
+    "required": ["briefing", "tts_extract"],
+}
 
 
 def fetch_position() -> tuple[float, float]:
@@ -390,26 +447,47 @@ def repair_to_json(prose: str) -> dict | None:
     """Second pass: reformat free-form briefing prose into the strict JSON shape.
 
     Local models often answer the synthesis prompt in prose despite the
-    'JSON only' instruction, yet still produce the right *content*. Reformatting
-    is a far easier task than synthesis, so a focused repair prompt usually
-    complies. Runs on the same local model — no connectivity required.
+    'JSON only' instruction, yet still produce the right *content*. This pass
+    calls Ollama directly with `format` set to BRIEFING_JSON_SCHEMA, so decoding
+    is grammar-constrained — the model *cannot* emit anything but schema-valid
+    JSON. Reformatting needs no tools, so bypassing hermes is fine; stays fully
+    offline on the boat.
     """
-    log.info("Navigator response was not JSON — attempting JSON repair pass")
-    repair_prompt = (
-        "Convert the briefing below into ONE valid JSON object matching this "
-        "exact shape. Output ONLY the JSON — no preamble, no markdown fences, "
-        "no commentary. Use the real values from the text; if a field is "
-        "missing, use a sensible empty value.\n\n"
-        f"SHAPE:\n{SCHEMA_EXAMPLE}\n\n"
-        f"BRIEFING TEXT:\n{prose.strip()}"
-    )
-    raw = _hermes_query(repair_prompt, timeout=90)
-    if raw is None:
+    log.info("Navigator response was not JSON — repairing via Ollama structured output")
+    payload = {
+        "model": OLLAMA_REPAIR_MODEL,
+        "format": BRIEFING_JSON_SCHEMA,
+        "stream": False,
+        "options": {"temperature": 0},
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You reformat a sailing briefing into JSON. Use only the real "
+                    "values present in the user's text. Do not invent data; if a "
+                    "field is absent, use an empty string or empty list."
+                ),
+            },
+            {"role": "user", "content": prose.strip()},
+        ],
+    }
+    try:
+        r = httpx.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=120)
+        r.raise_for_status()
+        content = r.json()["message"]["content"]
+    except Exception as e:
+        log.error("JSON repair pass (Ollama) failed: %s", e)
         return None
-    repaired = parse_briefing_response(raw)
-    if repaired is None:
-        log.error("JSON repair pass also failed to produce valid JSON")
-    return repaired
+
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        log.error("JSON repair returned non-JSON despite schema: %s", e)
+        return None
+    if "briefing" in data and "tts_extract" in data:
+        return data
+    log.error("JSON repair produced JSON missing required keys")
+    return None
 
 
 def run_navigator(prompt: str) -> dict | None:
@@ -470,6 +548,28 @@ def archive_to_logbook(briefing_markdown: str, db_path: str, lat: float, lon: fl
             (briefing_markdown, datetime.now(timezone.utc).isoformat(), lon, lat),
         )
     log.info("briefing archived to logbook")
+
+
+def prune_empty(briefing: dict) -> dict:
+    """Drop all-empty rows/notes a model may pad arrays with, so the HTML never
+    renders blank table lines or empty bullets. Mutates and returns briefing."""
+    def _nonempty(row: dict) -> bool:
+        return isinstance(row, dict) and any(str(v).strip() for v in row.values())
+
+    weather = briefing.get("weather", {})
+    if isinstance(weather.get("rows"), list):
+        weather["rows"] = [r for r in weather["rows"] if _nonempty(r)]
+    nav = briefing.get("navigation", {})
+    if isinstance(nav.get("tide_rows"), list):
+        nav["tide_rows"] = [r for r in nav["tide_rows"] if _nonempty(r)]
+    vessel = briefing.get("vessel_systems", {})
+    if isinstance(vessel.get("notes"), list):
+        vessel["notes"] = [n for n in vessel["notes"] if str(n).strip()]
+    if isinstance(briefing.get("advisories"), list):
+        briefing["advisories"] = [
+            a for a in briefing["advisories"] if isinstance(a, dict) and str(a.get("text", "")).strip()
+        ]
+    return briefing
 
 
 def render_html(briefing: dict, svg: str = "") -> str:
@@ -547,7 +647,7 @@ def main(dry_run: bool = False) -> None:
         log.error("Navigator returned no response — aborting")
         raise SystemExit(1)
 
-    structured = response["briefing"]
+    structured = prune_empty(response["briefing"])
     tts_extract = response["tts_extract"]
 
     wind = fetch_wind_curve(lat, lon)
