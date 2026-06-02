@@ -51,6 +51,7 @@ SIGNALK_URL = os.environ.get("SIGNALK_URL", "http://localhost:8765")
 CHS_STATIONS_URL = "https://api-sine.dfo-mpo.gc.ca/api/v1/stations"
 CHS_DATA_URL = "https://api-sine.dfo-mpo.gc.ca/api/v1/stations/{station_id}/data"
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
 HA_URL = os.environ.get("HA_URL", "http://192.168.68.90:8123")
 HA_TOKEN = os.environ.get("HOMEASSISTANT_TOKEN", "")
 LOGBOOK_DB_PATH = os.environ.get("LOGBOOK_DB_PATH", os.path.expanduser("~/.naturali/logbook.db"))
@@ -149,6 +150,75 @@ def fetch_position() -> tuple[float, float]:
     except Exception as e:
         log.warning("fetch_position failed (%s) — using mock position", e)
         return MOCK_LAT, MOCK_LON
+
+
+def reverse_geocode(lat: float, lon: float) -> str | None:
+    """Resolve a place name for the vessel position (header shows a name, not coords).
+
+    Online (Nominatim) — returns None when offline so the caller can fall back.
+    """
+    try:
+        r = httpx.get(
+            NOMINATIM_URL,
+            params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 14},
+            headers={"User-Agent": "naturali-briefing/1.0 (s/v Naturali)"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        log.warning("reverse_geocode failed (%s) — position name unavailable", e)
+        return None
+    addr = data.get("address", {})
+    for key in ("hamlet", "village", "town", "city", "suburb", "neighbourhood", "municipality"):
+        if addr.get(key):
+            return addr[key]
+    return data.get("name") or None
+
+
+def fetch_destination() -> str | None:
+    """Destination name from SignalK's active route. None when not navigating.
+
+    Reads the v2 course API; if a route is active, resolves the route resource
+    for a human name. Returns None (→ header omits destination) when there is no
+    active route or SignalK is unreachable.
+    """
+    try:
+        r = httpx.get(f"{SIGNALK_URL}/signalk/v2/api/vessels/self/navigation/course", timeout=5)
+        r.raise_for_status()
+        course = r.json()
+    except Exception as e:
+        log.warning("fetch_destination: course API unavailable (%s)", e)
+        return None
+
+    active = course.get("activeRoute") or {}
+    href = active.get("href")
+    if not href:
+        return None  # not navigating a route
+
+    url = f"{SIGNALK_URL}/signalk/v2/api{href}" if href.startswith("/") else f"{SIGNALK_URL}/{href}"
+    try:
+        rr = httpx.get(url, timeout=5)
+        rr.raise_for_status()
+        route = rr.json()
+    except Exception as e:
+        log.warning("fetch_destination: route resource %s unavailable (%s)", href, e)
+        return None
+
+    if route.get("name"):
+        return route["name"]
+    # GeoJSON LineString route: last coordinate's waypoint name, if present.
+    try:
+        coords = route["feature"]["geometry"]["coordinates"]
+        names = route["feature"]["properties"].get("coordinatesMeta") or []
+        if names and names[-1].get("name"):
+            return names[-1]["name"]
+        if coords:
+            lon, lat = coords[-1][0], coords[-1][1]
+            return reverse_geocode(lat, lon)
+    except (KeyError, IndexError, TypeError):
+        pass
+    return None
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -648,10 +718,19 @@ def main(dry_run: bool = False) -> None:
         raise SystemExit(1)
 
     structured = prune_empty(response["briefing"])
-    # The briefing date is deterministic — set it ourselves rather than trusting
-    # the model (the structured-output repair often leaves header fields blank).
+    # Header fields are deterministic — set them ourselves rather than trusting the
+    # model (the structured-output repair often leaves them blank or guesses).
     now = datetime.now()
-    structured.setdefault("header", {})["date"] = f"{now:%B} {now.day}"
+    header = structured.setdefault("header", {})
+    header["date"] = f"{now:%B} {now.day}"
+    position = reverse_geocode(lat, lon) or (tides or {}).get("station_name")
+    if position:
+        header["position"] = position
+    destination = fetch_destination()
+    if destination:
+        header["destination"] = destination
+    else:
+        header.pop("destination", None)  # no active route → omit, don't show a model guess
     tts_extract = response["tts_extract"]
 
     wind = fetch_wind_curve(lat, lon)
