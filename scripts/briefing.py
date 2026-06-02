@@ -65,6 +65,20 @@ HA_SSH_HOST = os.environ.get("HA_SSH_HOST", "root@192.168.68.90")
 HA_WWW_PATH = "/config/www/briefing.html"
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
 
+# The exact JSON shape the briefing must produce. Shared by the synthesis prompt
+# and the repair pass so they can never drift apart.
+SCHEMA_EXAMPLE = (
+    '{"briefing": {'
+    '"header": {"date": "June 1", "position": "Oak Bay", "destination": "Sidney"}, '
+    '"weather": {"rows": [{"source": "Forecast", "wind": "5 kn W", "pressure": "1018 steady"}], '
+    '"analysis": "Settled under high pressure."}, '
+    '"navigation": {"tide_rows": [{"type": "High", "time": "12:38", "height": "3.8 m"}], '
+    '"departure": "0900 to carry the flood", "analysis": "Slack favours mid-morning."}, '
+    '"vessel_systems": {"notes": ["Black water 72% — pump out at Sidney."]}, '
+    '"advisories": [{"level": "info", "text": "Battery 68% — full range available."}]}, '
+    '"tts_extract": "Good morning. Light westerlies, settled. Depart by 0900 for the flood."}'
+)
+
 
 def fetch_position() -> tuple[float, float]:
     try:
@@ -228,15 +242,7 @@ def build_prompt(
         "Then synthesize the daily briefing. Respond with ONE valid JSON object and "
         "nothing else — no preamble, no markdown fences, no template placeholders. "
         "Fill every field with real values from the data. Match this shape exactly:\n"
-        '{"briefing": {'
-        '"header": {"date": "June 1", "position": "Oak Bay", "destination": "Sidney"}, '
-        '"weather": {"rows": [{"source": "Forecast", "wind": "5 kn W", "pressure": "1018 steady"}], '
-        '"analysis": "Settled under high pressure."}, '
-        '"navigation": {"tide_rows": [{"type": "High", "time": "12:38", "height": "3.8 m"}], '
-        '"departure": "0900 to carry the flood", "analysis": "Slack favours mid-morning."}, '
-        '"vessel_systems": {"notes": ["Black water 72% — pump out at Sidney."]}, '
-        '"advisories": [{"level": "info", "text": "Battery 68% — full range available."}]}, '
-        '"tts_extract": "Good morning. Light westerlies, settled. Depart by 0900 for the flood."}\n'
+        f"{SCHEMA_EXAMPLE}\n"
         "tts_extract: spoken summary, max 75 words, no markdown."
     )
 
@@ -361,23 +367,61 @@ def parse_briefing_response(text: str) -> dict | None:
     return None
 
 
-def run_navigator(prompt: str) -> dict | None:
-    log.info("invoking Navigator agent")
+def _hermes_query(prompt: str, timeout: int = 120) -> str | None:
+    """Run one hermes/Navigator query; return raw stdout or None on failure."""
     try:
         result = subprocess.run(
             ["hermes", "chat", "-Q", "-s", AGENT_SKILL, "-q", prompt],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, timeout=timeout,
         )
-        if result.returncode != 0:
-            log.error("hermes failed: %s", result.stderr.strip())
-            return None
-        return parse_briefing_response(result.stdout)
     except subprocess.TimeoutExpired:
-        log.error("Navigator timed out after 120s")
+        log.error("Navigator timed out after %ds", timeout)
         return None
     except FileNotFoundError:
         log.error("hermes not found on PATH")
         return None
+    if result.returncode != 0:
+        log.error("hermes failed: %s", result.stderr.strip())
+        return None
+    return result.stdout
+
+
+def repair_to_json(prose: str) -> dict | None:
+    """Second pass: reformat free-form briefing prose into the strict JSON shape.
+
+    Local models often answer the synthesis prompt in prose despite the
+    'JSON only' instruction, yet still produce the right *content*. Reformatting
+    is a far easier task than synthesis, so a focused repair prompt usually
+    complies. Runs on the same local model — no connectivity required.
+    """
+    log.info("Navigator response was not JSON — attempting JSON repair pass")
+    repair_prompt = (
+        "Convert the briefing below into ONE valid JSON object matching this "
+        "exact shape. Output ONLY the JSON — no preamble, no markdown fences, "
+        "no commentary. Use the real values from the text; if a field is "
+        "missing, use a sensible empty value.\n\n"
+        f"SHAPE:\n{SCHEMA_EXAMPLE}\n\n"
+        f"BRIEFING TEXT:\n{prose.strip()}"
+    )
+    raw = _hermes_query(repair_prompt, timeout=90)
+    if raw is None:
+        return None
+    repaired = parse_briefing_response(raw)
+    if repaired is None:
+        log.error("JSON repair pass also failed to produce valid JSON")
+    return repaired
+
+
+def run_navigator(prompt: str) -> dict | None:
+    log.info("invoking Navigator agent")
+    raw = _hermes_query(prompt)
+    if raw is None:
+        return None
+    parsed = parse_briefing_response(raw)
+    if parsed is not None:
+        return parsed
+    # Model ignored the 'JSON only' instruction — salvage the prose.
+    return repair_to_json(raw)
 
 
 def publish_to_ha(state: str = "generated") -> None:
@@ -498,8 +542,10 @@ def main(dry_run: bool = False) -> None:
 
     response = run_navigator(prompt)
     if response is None:
+        # Exit non-zero so the bridge surfaces this instead of logging
+        # "briefing complete" — a clean return here is a silent failure.
         log.error("Navigator returned no response — aborting")
-        return
+        raise SystemExit(1)
 
     structured = response["briefing"]
     tts_extract = response["tts_extract"]
@@ -510,10 +556,12 @@ def main(dry_run: bool = False) -> None:
     html = render_html(structured, svg)
     markdown = render_markdown(structured)
 
+    html_ok = True
     try:
         publish_html(html)
     except Exception as e:
         log.error("publish_html failed: %s", e)
+        html_ok = False
 
     try:
         publish_to_ha("generated")
@@ -529,6 +577,13 @@ def main(dry_run: bool = False) -> None:
         archive_to_logbook(markdown, LOGBOOK_DB_PATH, lat, lon)
     except Exception as e:
         log.error("archive_to_logbook failed: %s", e)
+
+    if not html_ok:
+        # The HTML is the dashboard's only source — if scp failed, the briefing
+        # is effectively invisible. Exit non-zero so the bridge surfaces it
+        # (it discards our stderr on a clean exit) instead of logging success.
+        log.error("briefing HTML did not reach HA — dashboard will be stale")
+        raise SystemExit(1)
 
     log.info("briefing complete")
 

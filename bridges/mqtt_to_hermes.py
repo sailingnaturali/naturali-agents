@@ -95,7 +95,7 @@ def _run_briefing() -> None:
     try:
         result = subprocess.run(
             [UV, "run", briefing_script],
-            timeout=180,
+            timeout=300,  # synth + a possible JSON-repair pass = up to two model calls
             capture_output=True,
             text=True,
         )
@@ -104,7 +104,7 @@ def _run_briefing() -> None:
         else:
             log.info("briefing complete")
     except subprocess.TimeoutExpired:
-        log.error("briefing.py timed out after 180s")
+        log.error("briefing.py timed out after 300s")
 
 
 def on_connect(client: mqtt.Client, userdata: None, flags: dict, rc: int, properties=None) -> None:
