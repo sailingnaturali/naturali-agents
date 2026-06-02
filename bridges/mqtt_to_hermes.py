@@ -42,6 +42,10 @@ def _find(name: str) -> str:
 
 UV = _find("uv")
 HERMES = _find("hermes")
+# The Mac sleeps overnight; run the briefing under caffeinate so the host stays
+# awake for the whole run (otherwise it slogs across sleep cycles — ~10 min — and
+# the subprocess's monotonic timeout never fires because monotonic pauses in sleep).
+CAFFEINATE = shutil.which("caffeinate") or "/usr/bin/caffeinate"
 
 BROKER = os.environ.get("MQTT_BROKER", "naturalaspi.local")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
@@ -100,7 +104,7 @@ def _run_briefing() -> None:
     briefing_script = os.path.join(scripts_dir, "briefing.py")
     try:
         result = subprocess.run(
-            [UV, "run", briefing_script],
+            [CAFFEINATE, "-i", "-s", UV, "run", briefing_script],
             timeout=300,  # synth + a possible JSON-repair pass = up to two model calls
             capture_output=True,
             text=True,
