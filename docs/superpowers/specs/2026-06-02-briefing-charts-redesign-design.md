@@ -74,6 +74,23 @@ screens. Existing dark theme / accent colours (`--teal`, `--amber`) reused.
 - Integration: regenerate the briefing and verify on HA — compass shows current
   direction/speed, tide chart shows metre/time labels with fill.
 
+## Built (final design adjustments)
+
+After previewing on the dashboard, the layout was refined:
+
+- **Two stacked headed panels** (not side by side): a **WIND** box above a **TIDE**
+  box, each an inset card with an uppercase header.
+- **WIND box** is Apple-Weather style: a data column (Wind speed, Direction `NNN° X`)
+  beside a graduated compass dial — fine 5° tick ring, a white **pin at the source
+  bearing**, a bold **downwind arrow**, and speed at the centre. (No gusts — not
+  available.)
+- **Tide curve spans the local calendar day** (midnight→midnight local), x-axis
+  `00:00 06:00 12:00 18:00 00:00`; `fetch_tide_curve` queries the local-day range.
+- Tide series **downsampled to ~180 points** to keep the SVG small (~6 KB).
+- `render_html(briefing, wind, compass_svg, tide_svg)` — the template builds the
+  WIND box from `wind` (incl. a `cardinal` field) + `compass_svg`, and the TIDE box
+  from `tide_svg`.
+
 ## Out of scope (YAGNI)
 
 - Wind vector field over a map (explicitly deferred by the user).

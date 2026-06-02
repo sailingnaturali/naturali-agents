@@ -281,24 +281,25 @@ def fetch_tides(lat: float, lon: float) -> dict | None:
 
 
 def fetch_tide_curve(lat: float, lon: float) -> list[dict] | None:
-    """Fetch the continuous (wlp) 15-min water-level series for the SVG tide curve.
+    """Fetch the continuous (wlp) water-level series for the SVG tide curve.
 
-    Uses the same nearest-station selection as fetch_tides so the curve matches
-    the hi/lo table. Returns a list of {"time_utc", "height_m"} or None.
+    Spans the **local** calendar day (midnight→midnight local) so the chart's
+    x-axis reads 00:00–24:00 local. Uses the same nearest-station selection as
+    fetch_tides. Returns a list of {"time_utc", "height_m"} or None.
     """
     try:
         sr = httpx.get(CHS_STATIONS_URL, timeout=15)
         sr.raise_for_status()
         station = _nearest_tide_station(lat, lon, sr.json())
 
-        today = datetime.now(timezone.utc).date()
-        tomorrow = today + timedelta(days=1)
+        start_local = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+        end_local = start_local + timedelta(days=1)
         dr = httpx.get(
             CHS_DATA_URL.format(station_id=station["id"]),
             params={
                 "time-series-code": "wlp",
-                "from": f"{today}T00:00:00Z",
-                "to": f"{tomorrow}T00:00:00Z",
+                "from": start_local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "to": end_local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
             timeout=15,
         )
@@ -312,11 +313,12 @@ def fetch_tide_curve(lat: float, lon: float) -> list[dict] | None:
         return None
 
 
-def fetch_wind_curve(lat: float, lon: float) -> list[dict] | None:
-    """Fetch hourly wind speed (knots) for the SVG wind curve.
+def fetch_current_wind(lat: float, lon: float) -> dict | None:
+    """Current wind (speed in knots + direction in degrees) for the compass.
 
-    Isolated chart-only fetch via Open-Meteo — weather *synthesis* still goes
-    through the Navigator/weather-mcp. Returns [{"time", "knots"}] or None.
+    Open-Meteo current conditions — weather *synthesis* still goes through the
+    Navigator/weather-mcp. Returns {"speed_kn", "direction_deg"} or None.
+    direction_deg is the meteorological bearing the wind blows FROM.
     """
     try:
         r = httpx.get(
@@ -324,21 +326,20 @@ def fetch_wind_curve(lat: float, lon: float) -> list[dict] | None:
             params={
                 "latitude": lat,
                 "longitude": lon,
-                "hourly": "windspeed_10m",
+                "current": "wind_speed_10m,wind_direction_10m",
                 "wind_speed_unit": "kn",
-                "forecast_days": 1,
                 "timezone": "auto",
             },
             timeout=15,
         )
         r.raise_for_status()
-        hourly = r.json()["hourly"]
-        return [
-            {"time": t, "knots": k}
-            for t, k in zip(hourly["time"], hourly["windspeed_10m"])
-        ]
+        cur = r.json()["current"]
+        return {
+            "speed_kn": float(cur["wind_speed_10m"]),
+            "direction_deg": float(cur["wind_direction_10m"]),
+        }
     except Exception as e:
-        log.warning("fetch_wind_curve failed: %s", e)
+        log.warning("fetch_current_wind failed: %s", e)
         return None
 
 
@@ -376,69 +377,138 @@ def build_prompt(
     return "\n\n".join(parts)
 
 
-def build_svg_curve(
-    wind: list[dict] | None,
-    tide: list[dict] | None,
-) -> str:
-    """Render an inline SVG dual-curve (wind knots + tide metres) over the day.
+_CARDINALS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
-    Pure function. Returns "" when there is nothing to draw. Each series is
-    normalised to its own min/max so both fit the viewBox; a flat series is
-    centred to avoid divide-by-zero.
+
+def cardinal(direction_deg: float) -> str:
+    """16-point-rounded-to-8 cardinal label for a bearing in degrees."""
+    return _CARDINALS[round((direction_deg % 360) / 45) % 8]
+
+
+def build_wind_compass(direction_deg: float | None, speed_kn: float | None) -> str:
+    """Inline SVG wind dial (Apple-Weather style): a graduated ring, a pin at the
+    source bearing, and a bold arrow flying downwind, with the speed at centre.
+
+    direction_deg is the meteorological bearing the wind blows FROM. Pure
+    function; returns "" when inputs are missing.
     """
-    if not wind and not tide:
+    if direction_deg is None or speed_kn is None:
         return ""
 
-    W, H = 720, 200
-    PAD = 24
-
-    def _points(series: list[dict] | None, key: str) -> str:
-        if not series:
-            return ""
-        vals = [pt[key] for pt in series]
-        lo, hi = min(vals), max(vals)
-        span = hi - lo
-        n = len(series)
-        coords = []
-        for i, v in enumerate(vals):
-            x = PAD + (W - 2 * PAD) * (i / (n - 1 if n > 1 else 1))
-            if span == 0:
-                y = H / 2
-            else:
-                y = PAD + (H - 2 * PAD) * (1 - (v - lo) / span)
-            coords.append(f"{x:.1f},{y:.1f}")
-        return " ".join(coords)
+    cx = cy = 80.0
+    r = 70.0
+    th = math.radians(direction_deg)          # FROM bearing
+    th2 = th + math.pi                         # downwind (TO) bearing
 
     parts = [
-        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
-        f'class="curve" role="img" aria-label="Wind and tide over the day">'
+        '<svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg" '
+        f'class="compass" role="img" aria-label="Wind {speed_kn:.0f} kn from {cardinal(direction_deg)}">'
     ]
-    for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
-        x = PAD + (W - 2 * PAD) * frac
-        parts.append(
-            f'<line x1="{x:.1f}" y1="{PAD}" x2="{x:.1f}" y2="{H - PAD}" '
-            f'stroke="#1e293b" stroke-width="1"/>'
-        )
+    # graduated tick ring (every 5°, longer + brighter at the 8 points)
+    for deg in range(0, 360, 5):
+        a = math.radians(deg)
+        major = deg % 45 == 0
+        t_in = r - (10 if major else 5)
+        x1, y1 = cx + t_in * math.sin(a), cy - t_in * math.cos(a)
+        x2, y2 = cx + r * math.sin(a), cy - r * math.cos(a)
+        parts.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{"#475569" if major else "#283447"}" stroke-width="{1.6 if major else 1}"/>')
+    for label, deg in (("N", 0), ("E", 90), ("S", 180), ("W", 270)):
+        a = math.radians(deg)
+        lxp, lyp = cx + (r - 22) * math.sin(a), cy - (r - 22) * math.cos(a)
+        parts.append(f'<text x="{lxp:.1f}" y="{lyp + 4:.1f}" fill="#94a3b8" font-size="12" text-anchor="middle">{label}</text>')
+    # source pin (where the wind is FROM): stem + dot on the ring
+    px, py = cx + (r - 6) * math.sin(th), cy - (r - 6) * math.cos(th)
+    sx, sy = cx + (r - 20) * math.sin(th), cy - (r - 20) * math.cos(th)
+    parts.append(f'<line x1="{sx:.1f}" y1="{sy:.1f}" x2="{px:.1f}" y2="{py:.1f}" stroke="#5eead4" stroke-width="2"/>')
+    parts.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="5" fill="#e5e7eb"/>')
+    # downwind arrow (the direction the wind blows TO), offset into that quadrant
+    t1, t2 = r * 0.30, r * 0.62               # shaft along downwind bearing
+    ax1, ay1 = cx + t1 * math.sin(th2), cy - t1 * math.cos(th2)
+    ax2, ay2 = cx + t2 * math.sin(th2), cy - t2 * math.cos(th2)
+    ah = math.atan2(ay2 - ay1, ax2 - ax1)
+    hl, hw = 13.0, 8.0
+    bx, by = ax2 - hl * math.cos(ah), ay2 - hl * math.sin(ah)
+    lx, ly = bx - hw * math.sin(ah), by + hw * math.cos(ah)
+    rxp, ryp = bx + hw * math.sin(ah), by - hw * math.cos(ah)
+    parts.append(f'<line x1="{ax1:.1f}" y1="{ay1:.1f}" x2="{bx:.1f}" y2="{by:.1f}" stroke="#e5e7eb" stroke-width="4" stroke-linecap="round"/>')
+    parts.append(f'<polygon points="{ax2:.1f},{ay2:.1f} {lx:.1f},{ly:.1f} {rxp:.1f},{ryp:.1f}" fill="#e5e7eb"/>')
+    # centre speed
+    parts.append(f'<text x="{cx}" y="{cy - 1:.1f}" fill="#e5e7eb" font-size="26" font-weight="700" text-anchor="middle">{speed_kn:.0f}</text>')
+    parts.append(f'<text x="{cx}" y="{cy + 15:.1f}" fill="#94a3b8" font-size="11" text-anchor="middle">kn</text>')
+    parts.append("</svg>")
+    return "".join(parts)
 
-    tide_pts = _points(tide, "height_m")
-    if tide_pts:
-        parts.append(
-            f'<polyline points="{tide_pts}" fill="none" stroke="#fbbf24" '
-            f'stroke-width="2.5"/>'
-        )
-    wind_pts = _points(wind, "knots")
-    if wind_pts:
-        parts.append(
-            f'<polyline points="{wind_pts}" fill="none" stroke="#5eead4" '
-            f'stroke-width="2.5"/>'
-        )
 
-    parts.append(
-        f'<text x="{PAD}" y="16" fill="#5eead4" font-size="12">wind kn</text>'
-    )
-    parts.append(
-        f'<text x="{W - PAD - 48}" y="16" fill="#fbbf24" font-size="12">tide m</text>'
-    )
+def build_tide_chart(tide: list[dict] | None) -> str:
+    """Inline SVG area chart of tide height over the day, with labelled axes.
+
+    tide is fetch_tide_curve output [{"time_utc", "height_m"}]. Pure function;
+    returns "" when there is no data. Y-axis is metres; X-axis is local time.
+    """
+    if not tide:
+        return ""
+
+    # Downsample the (often per-minute) series to keep the SVG small; the curve
+    # is smooth so ~180 points is visually identical.
+    MAXP = 180
+    if len(tide) > MAXP:
+        step = len(tide) / MAXP
+        tide = [tide[int(i * step)] for i in range(MAXP)] + [tide[-1]]
+
+    W, H = 720, 240
+    L, R_, T, B = 46, 14, 18, 30  # paddings (left=y-labels, bottom=x-labels)
+    plot_w, plot_h = W - L - R_, H - T - B
+    base_y = T + plot_h
+
+    heights = [p["height_m"] for p in tide]
+    times = []
+    for p in tide:
+        try:
+            times.append(datetime.fromisoformat(p["time_utc"].replace("Z", "+00:00")).astimezone())
+        except Exception:
+            times.append(None)
+
+    lo, hi = min(heights), max(heights)
+    pad_v = (hi - lo) * 0.1 or 0.1
+    lo_a, hi_a = lo - pad_v, hi + pad_v
+    span_a = hi_a - lo_a
+    n = len(tide)
+
+    def X(i: int) -> float:
+        return L + plot_w * (i / (n - 1) if n > 1 else 0.5)
+
+    def Y(v: float) -> float:
+        return T + plot_h * (1 - (v - lo_a) / span_a)
+
+    parts = [f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" class="tide" role="img" aria-label="Tide height over the day">']
+    # horizontal gridlines + metre labels
+    for v in (lo, (lo + hi) / 2, hi):
+        y = Y(v)
+        parts.append(f'<line x1="{L}" y1="{y:.1f}" x2="{W - R_}" y2="{y:.1f}" stroke="#1e293b" stroke-width="1"/>')
+        parts.append(f'<text x="{L - 8}" y="{y + 4:.1f}" fill="#94a3b8" font-size="12" text-anchor="end">{v:.1f} m</text>')
+    # vertical gridlines + local-time labels (5 ticks)
+    ticks = 4
+    for k in range(ticks + 1):
+        i = round((n - 1) * k / ticks)
+        x = X(i)
+        parts.append(f'<line x1="{x:.1f}" y1="{T}" x2="{x:.1f}" y2="{base_y}" stroke="#1e293b" stroke-width="1"/>')
+        lbl = times[i].strftime("%H:%M") if times[i] else ""
+        parts.append(f'<text x="{x:.1f}" y="{H - B + 18:.1f}" fill="#94a3b8" font-size="12" text-anchor="middle">{lbl}</text>')
+    # area fill + line
+    line_pts = " ".join(f"{X(i):.1f},{Y(h):.1f}" for i, h in enumerate(heights))
+    parts.append(f'<polygon points="{X(0):.1f},{base_y:.1f} {line_pts} {X(n - 1):.1f},{base_y:.1f}" fill="#fbbf24" fill-opacity="0.15"/>')
+    parts.append(f'<polyline points="{line_pts}" fill="none" stroke="#fbbf24" stroke-width="2.5"/>')
+    # hi/lo dots
+    for i, h in enumerate(heights):
+        if h in (hi, lo):
+            parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(h):.1f}" r="3.5" fill="#fbbf24"/>')
+    # "now" marker, only if inside the data window
+    now = datetime.now().astimezone()
+    if times[0] and times[-1] and times[0] <= now <= times[-1]:
+        ni = min(range(n), key=lambda i: abs((times[i] - now).total_seconds()) if times[i] else 1e18)
+        xn = X(ni)
+        parts.append(f'<line x1="{xn:.1f}" y1="{T}" x2="{xn:.1f}" y2="{base_y}" stroke="#5eead4" stroke-width="1.5" stroke-dasharray="4 3"/>')
+        parts.append(f'<text x="{xn:.1f}" y="{T + 10:.1f}" fill="#5eead4" font-size="11" text-anchor="middle">now</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -642,12 +712,14 @@ def prune_empty(briefing: dict) -> dict:
     return briefing
 
 
-def render_html(briefing: dict, svg: str = "") -> str:
+def render_html(briefing: dict, wind: dict | None = None, compass_svg: str = "", tide_svg: str = "") -> str:
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),
         autoescape=select_autoescape(["html"]),
     )
-    return env.get_template("briefing.html.j2").render(b=briefing, svg=svg)
+    return env.get_template("briefing.html.j2").render(
+        b=briefing, wind=wind, compass_svg=compass_svg, tide_svg=tide_svg
+    )
 
 
 def render_markdown(briefing: dict) -> str:
@@ -733,10 +805,16 @@ def main(dry_run: bool = False) -> None:
         header.pop("destination", None)  # no active route → omit, don't show a model guess
     tts_extract = response["tts_extract"]
 
-    wind = fetch_wind_curve(lat, lon)
+    current_wind = fetch_current_wind(lat, lon)
+    if current_wind:
+        current_wind["cardinal"] = cardinal(current_wind["direction_deg"])
     tide_curve = fetch_tide_curve(lat, lon)
-    svg = build_svg_curve(wind, tide_curve)
-    html = render_html(structured, svg)
+    compass_svg = (
+        build_wind_compass(current_wind["direction_deg"], current_wind["speed_kn"])
+        if current_wind else ""
+    )
+    tide_svg = build_tide_chart(tide_curve)
+    html = render_html(structured, current_wind, compass_svg, tide_svg)
     markdown = render_markdown(structured)
 
     html_ok = True

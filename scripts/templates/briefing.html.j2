@@ -107,11 +107,30 @@
     }
     ul { margin: 0; padding-left: 1.2rem; }
     li { margin-bottom: 0.4rem; }
-    .chart {
+    .panel {
       margin-top: 1rem;
-      overflow-x: auto;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 0.85rem 1rem 1rem;
     }
-    .chart svg { max-width: 100%; height: auto; display: block; }
+    .panel-h {
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.7rem;
+    }
+    .wind { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .wind-data { flex: 1 1 150px; display: flex; flex-direction: column; gap: 0.55rem; }
+    .wd-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      border-bottom: 1px solid #1e293b; padding-bottom: 0.45rem;
+    }
+    .wd-row span { color: var(--muted); }
+    .wd-row b { color: var(--text); font-weight: 600; }
+    .wind-dial { flex: 0 0 150px; }
+    .panel svg { max-width: 100%; height: auto; display: block; }
     .advisories { margin-top: 1.25rem; display: grid; gap: 0.7rem; }
     .advisory {
       border-radius: 10px;
@@ -174,7 +193,24 @@
         </table>
         <div class="departure"><span class="label">Departure</span>{{ b.navigation.departure or "" }}</div>
         <p>{{ b.navigation.analysis or "" }}</p>
-        {% if svg %}<div class="chart">{{ svg|safe }}</div>{% endif %}
+        {% if compass_svg and wind %}
+        <div class="panel">
+          <div class="panel-h">Wind</div>
+          <div class="wind">
+            <div class="wind-data">
+              <div class="wd-row"><span>Wind</span><b>{{ wind.speed_kn|round|int }} kn</b></div>
+              <div class="wd-row"><span>Direction</span><b>{{ wind.direction_deg|round|int }}° {{ wind.cardinal }}</b></div>
+            </div>
+            <div class="wind-dial">{{ compass_svg|safe }}</div>
+          </div>
+        </div>
+        {% endif %}
+        {% if tide_svg %}
+        <div class="panel">
+          <div class="panel-h">Tide</div>
+          {{ tide_svg|safe }}
+        </div>
+        {% endif %}
       </section>
 
       <section class="card">
