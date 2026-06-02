@@ -14,6 +14,13 @@ if [[ -f "${ENV_FILE}" ]]; then
   set +a
 fi
 
+# launchd starts us with a minimal PATH. Give the bridge — and every tool the
+# briefing subprocess shells out to (hermes + uv in ~/.local/bin, node/npx via
+# mise shims for MCP servers) — the same toolchain dirs an interactive shell has.
+# Without this, briefing.py's `hermes` call fails with "hermes not found on PATH"
+# and the scheduled briefing silently aborts.
+export PATH="${HOME}/.local/bin:${HOME}/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
 cd "${SCRIPT_DIR}"
 
 # Prevent duplicate instances. If a previous invocation is still alive (e.g.

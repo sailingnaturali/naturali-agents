@@ -25,6 +25,7 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
 
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
@@ -49,6 +50,11 @@ MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD")
 AGENT_NAME = os.environ.get("AGENT_NAME", "navigator")
 HERMES_SKILL = os.environ.get("HERMES_SKILL", "naturali/navigator")
 SAY_TOPIC = f"naturali/agents/{AGENT_NAME}/say"
+# Stable client id + a persistent session so the broker queues QoS-1 intents
+# (e.g. the 0600 briefing) while the bridge is briefly disconnected, and
+# delivers them on reconnect instead of dropping them.
+CLIENT_ID = os.environ.get("MQTT_CLIENT_ID", "naturali-mqtt-bridge")
+INTENTS_TOPIC = "naturali/intents/#"
 
 
 def _run_hermes(query: str) -> None:
@@ -110,10 +116,23 @@ def _run_briefing() -> None:
 def on_connect(client: mqtt.Client, userdata: None, flags: dict, rc: int, properties=None) -> None:
     if rc == 0:
         log.info("connected to %s:%d", BROKER, PORT)
-        client.subscribe("naturali/intents/#")
-        log.info("subscribed to naturali/intents/#")
+        # QoS 1 so the broker queues intents for our persistent session while
+        # we're briefly offline (see CLIENT_ID / clean_session in main()).
+        client.subscribe(INTENTS_TOPIC, qos=1)
+        log.info("subscribed to %s (qos=1)", INTENTS_TOPIC)
     else:
         log.error("connection failed, rc=%d", rc)
+
+
+def _dispatch(topic: str, text: str) -> None:
+    """Handle one intent. Runs on a worker thread, not the MQTT loop."""
+    if topic == "naturali/intents/ask":
+        if text:
+            _run_hermes(text)
+    elif topic == "naturali/intents/briefing":
+        _run_briefing()
+    else:
+        log.warning("unhandled intent topic: %s", topic)
 
 
 def on_message(client: mqtt.Client, userdata: None, msg: mqtt.MQTTMessage) -> None:
@@ -126,23 +145,29 @@ def on_message(client: mqtt.Client, userdata: None, msg: mqtt.MQTTMessage) -> No
     text = payload.get("text", "").strip()
     log.info("intent: %s payload=%s", topic, payload)
 
-    if topic == "naturali/intents/ask":
-        if text:
-            _run_hermes(text)
-    elif topic == "naturali/intents/briefing":
-        _run_briefing()
-    else:
-        log.warning("unhandled intent topic: %s", topic)
+    # Dispatch off the network loop so on_message returns immediately. A briefing
+    # can take minutes; blocking here would stall keepalive (dropping the
+    # connection) and delay the QoS-1 ack (triggering broker redelivery — i.e.
+    # duplicate briefings). The worker thread does the slow work.
+    threading.Thread(target=_dispatch, args=(topic, text), daemon=True).start()
 
 
 def main() -> None:
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    # Fixed client id + clean_session=False → a persistent session the broker
+    # keeps across our frequent reconnects, so QoS-1 intents published while
+    # we're offline are queued and delivered on reconnect.
+    client = mqtt.Client(
+        mqtt.CallbackAPIVersion.VERSION2,
+        client_id=CLIENT_ID,
+        clean_session=False,
+    )
     client.on_connect = on_connect
     client.on_message = on_message
+    client.reconnect_delay_set(min_delay=1, max_delay=30)
     if MQTT_USER:
         client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
 
-    log.info("connecting to %s:%d", BROKER, PORT)
+    log.info("connecting to %s:%d as %s", BROKER, PORT, CLIENT_ID)
     client.connect(BROKER, PORT, keepalive=60)
     client.loop_forever()
 
