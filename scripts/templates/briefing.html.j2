@@ -218,6 +218,7 @@
 
       <section class="card">
         <h2>Vessel Systems</h2>
+        {% if house_panel %}<div class="tank-panel">{{ house_panel|safe }}</div>{% endif %}
         {% for panel in tank_panels %}
         <div class="tank-panel">{{ panel|safe }}</div>
         {% endfor %}

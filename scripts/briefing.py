@@ -82,7 +82,7 @@ SCHEMA_EXAMPLE = (
     '"navigation": {"tide_rows": [{"type": "High", "time": "12:38", "height": "3.8 m"}], '
     '"departure": "0900 to carry the flood", "analysis": "Slack favours mid-morning."}, '
     '"vessel_systems": {"notes": ["Engine hours logged; bilge dry."]}, '
-    '"advisories": [{"level": "info", "text": "Battery 68% — full range available."}]}, '
+    '"advisories": [{"level": "info", "text": "Monitor VHF 16 in the traffic lanes."}]}, '
     '"tts_extract": "Good morning. Light westerlies, settled. Depart by 0900 for the flood."}'
 )
 
@@ -899,6 +899,155 @@ def build_tank_panel(spec: TankSpec, level: float | None, history: list[tuple[st
     return "".join(parts)
 
 
+HOUSE_BANK_AH = float(os.environ.get("HOUSE_BANK_AH", "400"))  # nominal house-bank capacity
+
+
+def fetch_house_power() -> dict | None:
+    """Read the first SignalK electrical battery → SoC %, voltage, current, power,
+    time-remaining. Returns None when no battery / SignalK is unreachable."""
+    try:
+        r = httpx.get(f"{SIGNALK_URL}/signalk/v1/api/vessels/self/electrical/batteries", timeout=5)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        log.warning("fetch_house_power unavailable (%s)", e)
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    for bat in data.values():
+        if not isinstance(bat, dict):
+            continue
+
+        def _v(*path: str):
+            node = bat
+            for k in path:
+                node = node.get(k) if isinstance(node, dict) else None
+            return node.get("value") if isinstance(node, dict) else None
+
+        soc = _v("capacity", "stateOfCharge")
+        if soc is None:
+            soc = _v("stateOfCharge")
+        if not isinstance(soc, (int, float)):
+            continue
+        voltage, current, power = _v("voltage"), _v("current"), _v("power")
+        if power is None and voltage is not None and current is not None:
+            power = voltage * current
+        return {
+            "soc_pct": round(soc * 100, 1),
+            "voltage": voltage,
+            "current_a": current,
+            "power_w": power,
+            "time_remaining_s": _v("capacity", "timeRemaining"),
+        }
+    return None
+
+
+def record_soc_reading(soc_pct: float, db_path: str | None = None) -> None:
+    record_tank_reading("houseBattery", soc_pct, db_path)
+
+
+def house_soc_history(limit: int = 30, db_path: str | None = None) -> list[tuple[str, float]]:
+    return tank_history("houseBattery", limit, db_path)
+
+
+def house_time_remaining(data: dict) -> dict | None:
+    """Hours to full (charging) or empty (discharging) at the instantaneous rate.
+
+    Prefers SignalK capacity.timeRemaining for the discharge case; otherwise
+    derives hours from current and HOUSE_BANK_AH. None when idle/float (~0 A).
+    """
+    current = data.get("current_a")
+    soc = data.get("soc_pct")
+    if current is None or soc is None or abs(current) < 0.2:
+        return None
+    if current > 0:  # charging → time to full
+        hours = (HOUSE_BANK_AH * (100 - soc) / 100) / current
+        return {"hours": hours, "state": "charging", "target": "full"}
+    tr = data.get("time_remaining_s")
+    hours = (tr / 3600) if tr else (HOUSE_BANK_AH * soc / 100) / abs(current)
+    return {"hours": hours, "state": "discharging", "target": "empty"}
+
+
+def _sample_house_power() -> tuple[dict, list[tuple[str, float]]]:
+    """Synthetic house-power data + a 7-day SoC cycle for the placeholder."""
+    now = datetime.now(timezone.utc)
+    cycle = [55.0, 78.0, 50.0, 82.0, 48.0, 80.0, 52.0, 68.0]
+    history = [((now - timedelta(days=7 - i)).isoformat(), v) for i, v in enumerate(cycle)]
+    data = {"soc_pct": 68.0, "voltage": 12.6, "current_a": -4.2, "power_w": -52.9, "time_remaining_s": None}
+    return data, history
+
+
+def build_house_power_panel(data: dict | None, history: list[tuple[str, float]],
+                            placeholder: bool = False) -> str:
+    """Inline SVG: SoC bar + a power-flow row + instantaneous time-remaining, plus
+    a 7-day SoC trend (no projection — ETA is instantaneous). Pure; "" if no data."""
+    if not data or data.get("soc_pct") is None:
+        return ""
+    soc = data["soc_pct"]
+    W, H = 720, 150
+    color = _tank_color("drain", soc)   # low SoC = bad
+    parts = [
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
+        f'class="house" role="img" aria-label="House battery {soc:.0f} percent">'
+    ]
+    parts.append(f'<text x="0" y="14" fill="#94a3b8" font-size="12" letter-spacing="1.2">HOUSE POWER</text>')
+    parts.append(f'<text x="{W}" y="15" fill="{color}" font-size="17" font-weight="700" text-anchor="end">{soc:.0f}%</text>')
+    by, bh = 24, 18
+    parts.append(f'<rect x="0" y="{by}" width="{W}" height="{bh}" rx="6" fill="#1e293b"/>')
+    parts.append(f'<rect x="0" y="{by}" width="{max(3, W * soc / 100):.1f}" height="{bh}" rx="6" fill="{color}"/>')
+    # flow row
+    i, p, v = data.get("current_a"), data.get("power_w"), data.get("voltage")
+    if i is None:
+        flow = "no flow data"
+    else:
+        state = "charging" if i > 0.05 else ("discharging" if i < -0.05 else "idle")
+        flow = f"⚡ {i:+.1f} A"
+        if p is not None:
+            flow += f" · {p:+.0f} W"
+        flow += f" · {state}"
+        if v is not None:
+            flow += f" · {v:.1f} V"
+    parts.append(f'<text x="0" y="58" fill="{color}" font-size="13">{flow}</text>')
+    tr = house_time_remaining(data)
+    if tr:
+        h = tr["hours"]
+        amount = f"{round(h)} h" if h < 48 else f"{round(h / 24)} days"
+        eta = f"≈ {tr['target']} in {amount}"
+    else:
+        eta = "float · idle"
+    parts.append(f'<text x="{W}" y="58" fill="{color}" font-size="13" text-anchor="end">{eta}</text>')
+    # SoC trend (full width, latest = now; no projection)
+    CL, CT, CB = 38, 72, 132
+
+    def CY(val: float) -> float:
+        return CB - (CB - CT) * (val / 100)
+
+    parts.append(f'<line x1="{CL}" y1="{CY(100):.1f}" x2="{W}" y2="{CY(100):.1f}" stroke="#1e293b" stroke-width="1"/>')
+    parts.append(f'<line x1="{CL}" y1="{CY(0):.1f}" x2="{W}" y2="{CY(0):.1f}" stroke="#1e293b" stroke-width="1"/>')
+    parts.append(f'<text x="{CL - 6}" y="{CY(100) + 4:.1f}" fill="#475569" font-size="10" text-anchor="end">100</text>')
+    parts.append(f'<text x="{CL - 6}" y="{CY(0) + 4:.1f}" fill="#475569" font-size="10" text-anchor="end">0</text>')
+    pts = [(datetime.fromisoformat(ts), lvl) for ts, lvl in history]
+    if pts:
+        cutoff = pts[-1][0] - timedelta(days=7)
+        pts7 = [pt for pt in pts if pt[0] >= cutoff] or pts
+        t0, tn = pts7[0][0], pts7[-1][0]
+        span = (tn - t0).total_seconds() or 1.0
+
+        def X(t: datetime) -> float:
+            return CL + (W - CL) * ((t - t0).total_seconds() / span)
+
+        line = " ".join(f"{X(t):.1f},{CY(l):.1f}" for t, l in pts7)
+        parts.append(f'<polyline points="{line}" fill="none" stroke="{color}" stroke-width="2.5"/>')
+        parts.append(f'<circle cx="{X(tn):.1f}" cy="{CY(pts7[-1][1]):.1f}" r="3.5" fill="{color}"/>')
+        parts.append(f'<text x="{CL}" y="146" fill="#64748b" font-size="10">{_fmt_date(t0)}</text>')
+        parts.append(f'<text x="{W}" y="146" fill="#94a3b8" font-size="10" text-anchor="end">now</text>')
+    if placeholder:
+        parts.append(f'<text x="{(CL + W) / 2:.0f}" y="146" fill="#64748b" font-size="10" text-anchor="middle">sample · awaiting sensor</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def prune_empty(briefing: dict) -> dict:
     """Drop all-empty rows/notes a model may pad arrays with, so the HTML never
     renders blank table lines or empty bullets. Mutates and returns briefing."""
@@ -923,14 +1072,14 @@ def prune_empty(briefing: dict) -> dict:
 
 def render_html(briefing: dict, wind: dict | None = None, compass_svg: str = "",
                 tide_svg: str = "", tank_panels: list[str] | None = None,
-                vessel_name: str = "Naturali") -> str:
+                vessel_name: str = "Naturali", house_panel: str = "") -> str:
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),
         autoescape=select_autoescape(["html"]),
     )
     return env.get_template("briefing.html.j2").render(
         b=briefing, wind=wind, compass_svg=compass_svg, tide_svg=tide_svg,
-        tank_panels=tank_panels or [], vessel_name=vessel_name,
+        tank_panels=tank_panels or [], vessel_name=vessel_name, house_panel=house_panel,
     )
 
 
@@ -1027,6 +1176,18 @@ def main(dry_run: bool = False) -> None:
     )
     tide_svg = build_tide_chart(tide_curve)
 
+    try:
+        hp = fetch_house_power()
+        if hp is None:
+            hp, hp_hist = _sample_house_power()
+            house_panel = build_house_power_panel(hp, hp_hist, placeholder=True)
+        else:
+            record_soc_reading(hp["soc_pct"])
+            house_panel = build_house_power_panel(hp, house_soc_history())
+    except Exception as e:
+        log.warning("house power panel failed: %s", e)
+        house_panel = ""
+
     tank_panels = []
     for spec in TANKS:
         try:
@@ -1043,7 +1204,7 @@ def main(dry_run: bool = False) -> None:
             log.warning("tank panel %s failed: %s", spec.key, e)
 
     html = render_html(structured, current_wind, compass_svg, tide_svg, tank_panels,
-                       vessel_name=fetch_vessel_name())
+                       vessel_name=fetch_vessel_name(), house_panel=house_panel)
     markdown = render_markdown(structured)
 
     html_ok = True
