@@ -325,3 +325,56 @@ def test_dry_run_prints_prompt_without_calling_hermes():
     assert '"briefing"' in result.stdout
     # hermes should NOT have been called (no 🔧 tool-call lines)
     assert "🔧" not in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Open-Meteo retry (fetch_current_wind / _get_with_retry)
+# ---------------------------------------------------------------------------
+
+WIND_JSON = {"current": {"wind_speed_10m": 9.2, "wind_direction_10m": 258.0}}
+
+
+@respx.mock
+def test_fetch_current_wind_retries_transient_502(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr(briefing.time, "sleep", sleeps.append)
+    route = respx.get("https://api.open-meteo.com/v1/forecast").mock(
+        side_effect=[httpx.Response(502), httpx.Response(200, json=WIND_JSON)]
+    )
+    wind = briefing.fetch_current_wind(48.76, -123.05)
+    assert wind == {"speed_kn": 9.2, "direction_deg": 258.0}
+    assert route.call_count == 2
+    assert sleeps == [1.0]
+
+
+@respx.mock
+def test_fetch_current_wind_gives_up_after_persistent_502(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr(briefing.time, "sleep", sleeps.append)
+    route = respx.get("https://api.open-meteo.com/v1/forecast").mock(
+        return_value=httpx.Response(502)
+    )
+    assert briefing.fetch_current_wind(48.76, -123.05) is None
+    assert route.call_count == 3
+    assert sleeps == [1.0, 3.0]
+
+
+@respx.mock
+def test_fetch_current_wind_does_not_retry_4xx(monkeypatch):
+    monkeypatch.setattr(briefing.time, "sleep", lambda s: None)
+    route = respx.get("https://api.open-meteo.com/v1/forecast").mock(
+        return_value=httpx.Response(400)
+    )
+    assert briefing.fetch_current_wind(48.76, -123.05) is None
+    assert route.call_count == 1
+
+
+@respx.mock
+def test_fetch_current_wind_retries_transport_error(monkeypatch):
+    monkeypatch.setattr(briefing.time, "sleep", lambda s: None)
+    route = respx.get("https://api.open-meteo.com/v1/forecast").mock(
+        side_effect=[httpx.ConnectError("reset"), httpx.Response(200, json=WIND_JSON)]
+    )
+    wind = briefing.fetch_current_wind(48.76, -123.05)
+    assert wind == {"speed_kn": 9.2, "direction_deg": 258.0}
+    assert route.call_count == 2

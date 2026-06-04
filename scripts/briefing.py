@@ -26,6 +26,7 @@ import os
 import sqlite3
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import NamedTuple
@@ -346,6 +347,30 @@ def fetch_tide_curve(lat: float, lon: float) -> list[dict] | None:
         return None
 
 
+_RETRY_BACKOFF_S = (1.0, 3.0)
+
+
+def _get_with_retry(url: str, *, attempts: int = 3, **kwargs) -> httpx.Response:
+    """httpx.get that retries transport errors and 5xx (transient upstream blips,
+    e.g. Open-Meteo 502s). 4xx raises immediately — those won't heal on retry.
+    Backoff 1 s then 3 s. Raises the last error when all attempts fail."""
+    last_exc: Exception = RuntimeError("unreachable")
+    for attempt in range(attempts):
+        try:
+            r = httpx.get(url, **kwargs)
+            r.raise_for_status()
+            return r
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code < 500:
+                raise
+            last_exc = e
+        except httpx.TransportError as e:
+            last_exc = e
+        if attempt < attempts - 1:
+            time.sleep(_RETRY_BACKOFF_S[min(attempt, len(_RETRY_BACKOFF_S) - 1)])
+    raise last_exc
+
+
 def fetch_current_wind(lat: float, lon: float) -> dict | None:
     """Current wind (speed in knots + direction in degrees) for the compass.
 
@@ -354,7 +379,7 @@ def fetch_current_wind(lat: float, lon: float) -> dict | None:
     direction_deg is the meteorological bearing the wind blows FROM.
     """
     try:
-        r = httpx.get(
+        r = _get_with_retry(
             OPEN_METEO_URL,
             params={
                 "latitude": lat,
@@ -365,7 +390,6 @@ def fetch_current_wind(lat: float, lon: float) -> dict | None:
             },
             timeout=15,
         )
-        r.raise_for_status()
         cur = r.json()["current"]
         return {
             "speed_kn": float(cur["wind_speed_10m"]),
