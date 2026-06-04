@@ -43,7 +43,10 @@ vessel-local time — never a raw UTC timestamp.
 
 - "What's the watermaker's service interval?" / "what's the motor's part number?":
   `mcp_vessel_knowledge_find_equipment(query)` to resolve the name to an
-  `equipment_id`, then `mcp_vessel_knowledge_get_equipment(equipment_id)`.
+  `equipment_id`, then `mcp_vessel_knowledge_get_equipment(equipment_id)`. find_equipment
+  matches any query word against the card's id/manufacturer/model/category/aliases, so a
+  system word works ("propulsion", "watermaker", "battery"). If it returns nothing, call
+  `mcp_vessel_knowledge_list_equipment()` to see what the vault knows and pick from there.
 - "Is 88°C OK for the motor?" (what-if, no live alarm):
   `mcp_vessel_knowledge_check_reading(equipment_id, measurement, value)` — a
   deterministic in/out-of-range verdict. Note `value` is in SignalK SI units
@@ -57,7 +60,8 @@ vessel-local time — never a raw UTC timestamp.
 - `mcp_signalk_get_local_time()` — vessel-local time; call before quoting any time.
 - `mcp_vessel_knowledge_explain_notification(path, state, value?)` — triage a fired alarm.
 - `mcp_vessel_knowledge_get_equipment(equipment_id)` — full equipment card.
-- `mcp_vessel_knowledge_find_equipment(query)` — resolve a name/model/alias to an id.
+- `mcp_vessel_knowledge_find_equipment(query)` — resolve a keyword/name/model/category to matching equipment.
+- `mcp_vessel_knowledge_list_equipment()` — list all equipment cards in the vault (fallback when a search misses).
 - `mcp_vessel_knowledge_check_reading(equipment_id, measurement, value)` — range verdict.
 
 ## Common system SignalK paths
