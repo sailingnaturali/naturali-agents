@@ -213,20 +213,29 @@ def test_parse_briefing_response_invalid_returns_none():
     assert briefing.parse_briefing_response("") is None
 
 
-def test_build_svg_curve_renders_svg():
-    wind = [{"time": f"2026-05-30T{h:02d}:00", "knots": k}
-            for h, k in enumerate([5, 8, 12, 15, 11, 7])]
+def test_build_tide_chart_renders_svg():
     tide = [{"time_utc": f"2026-05-30T{h:02d}:00:00Z", "height_m": m}
             for h, m in enumerate([1.0, 1.8, 2.6, 3.0, 2.4, 1.2])]
-    svg = briefing.build_svg_curve(wind, tide)
+    svg = briefing.build_tide_chart(tide)
     assert svg.startswith("<svg")
     assert "</svg>" in svg
     assert "polyline" in svg or "path" in svg
 
 
-def test_build_svg_curve_empty_returns_empty_string():
-    assert briefing.build_svg_curve([], []) == ""
-    assert briefing.build_svg_curve(None, None) == ""
+def test_build_tide_chart_empty_returns_empty_string():
+    assert briefing.build_tide_chart([]) == ""
+    assert briefing.build_tide_chart(None) == ""
+
+
+def test_build_wind_compass_renders_svg():
+    svg = briefing.build_wind_compass(225.0, 12.0)
+    assert svg.startswith("<svg")
+    assert "</svg>" in svg
+
+
+def test_build_wind_compass_missing_inputs_returns_empty_string():
+    assert briefing.build_wind_compass(None, 12.0) == ""
+    assert briefing.build_wind_compass(225.0, None) == ""
 
 
 def test_render_markdown_from_structured():
