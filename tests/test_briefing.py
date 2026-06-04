@@ -361,20 +361,24 @@ def test_fetch_current_wind_gives_up_after_persistent_502(monkeypatch):
 
 @respx.mock
 def test_fetch_current_wind_does_not_retry_4xx(monkeypatch):
-    monkeypatch.setattr(briefing.time, "sleep", lambda s: None)
+    sleeps = []
+    monkeypatch.setattr(briefing.time, "sleep", sleeps.append)
     route = respx.get("https://api.open-meteo.com/v1/forecast").mock(
         return_value=httpx.Response(400)
     )
     assert briefing.fetch_current_wind(48.76, -123.05) is None
     assert route.call_count == 1
+    assert sleeps == []
 
 
 @respx.mock
 def test_fetch_current_wind_retries_transport_error(monkeypatch):
-    monkeypatch.setattr(briefing.time, "sleep", lambda s: None)
+    sleeps = []
+    monkeypatch.setattr(briefing.time, "sleep", sleeps.append)
     route = respx.get("https://api.open-meteo.com/v1/forecast").mock(
         side_effect=[httpx.ConnectError("reset"), httpx.Response(200, json=WIND_JSON)]
     )
     wind = briefing.fetch_current_wind(48.76, -123.05)
     assert wind == {"speed_kn": 9.2, "direction_deg": 258.0}
     assert route.call_count == 2
+    assert sleeps == [1.0]
