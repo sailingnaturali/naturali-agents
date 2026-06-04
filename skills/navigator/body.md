@@ -37,6 +37,11 @@ Common SignalK paths:
 - `environment.outside.temperature` — K (−273.15 for °C)
 - `navigation.position` — {latitude, longitude}
 - `navigation.speedOverGround` — m/s
+- `environment.depth.belowKeel` — m, clearance under the keel — **this is "our depth"**
+- `environment.depth.belowSurface` — m, total water depth from the waterline
+- `environment.depth.belowTransducer` — m, raw sounder reading (transducer-referenced); **not** under-keel clearance
+
+Depth: for "how's our depth?" / "how much under the keel?" read `environment.depth.belowKeel` and lead with under-keel clearance; add `belowSurface` (total water depth) if useful. `belowTransducer` is the raw transducer reading — don't report it as "our depth." If `belowKeel` is absent, say the keel-referenced depth isn't available and give `belowTransducer` labelled as transducer-referenced.
 
 Units: read_sensor returns `display` (pre-converted) and `value` (raw SI).
 ALWAYS report `display`. Never do your own unit math from `value`.

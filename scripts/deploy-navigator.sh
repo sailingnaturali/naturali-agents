@@ -24,32 +24,17 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/vessel-name.sh
+source "$repo_root/scripts/vessel-name.sh"
 src="$repo_root/skills/navigator"
 skills_dir="${HERMES_SKILLS_DIR:-$HOME/.hermes/skills}"
 dest="$skills_dir/naturali/navigator/SKILL.md"
-profiles_dir="${VESSEL_PROFILES_DIR:-$repo_root/../infrastructure/vessels/profiles}"
 
 for f in frontmatter.yaml body.md briefing.md; do
   [ -f "$src/$f" ] || { echo "deploy-navigator: missing $src/$f" >&2; exit 1; }
 done
 
-# Resolve the vessel name (see header). Reads YAML with sed — no deps.
-resolve_vessel_name() {
-  if [ -n "${VESSEL_NAME:-}" ]; then printf '%s' "$VESSEL_NAME"; return; fi
-  local active_file="$profiles_dir/active.yaml"
-  if [ -f "$active_file" ]; then
-    local active name_file name
-    active="$(sed -n 's/^active:[[:space:]]*//p' "$active_file" | tr -d '"'\''[:space:]')"
-    name_file="$profiles_dir/$active.yaml"
-    if [ -n "$active" ] && [ -f "$name_file" ]; then
-      name="$(sed -n 's/^name:[[:space:]]*//p' "$name_file" | head -1 | sed 's/^"\(.*\)"$/\1/; s/^'\''\(.*\)'\''$/\1/')"
-      if [ -n "$name" ]; then printf '%s' "$name"; return; fi
-    fi
-  fi
-  printf 'Naturali'
-}
-
-vessel_name="$(resolve_vessel_name)"
+vessel_name="$(resolve_vessel_name "$repo_root")"
 
 # 1) Runtime SKILL.md = frontmatter (fenced) + body + briefing,
 #    with {{VESSEL_NAME}} substituted.
