@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["httpx>=0.27", "paho-mqtt>=2.0", "jinja2>=3.1"]
 # ///
-"""Daily briefing generator for s/v Naturali.
+"""Daily briefing generator for the active vessel.
 
 Fetches tides (CHS IWLS) and an hourly wind series, passes a data block to the
 Navigator agent via hermes (which calls weather-mcp itself for wind/swell/buoys),
@@ -175,7 +175,7 @@ def reverse_geocode(lat: float, lon: float) -> str | None:
         r = httpx.get(
             NOMINATIM_URL,
             params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 14},
-            headers={"User-Agent": "naturali-briefing/1.0 (s/v Naturali)"},
+            headers={"User-Agent": "naturali-briefing/1.0 (+https://sailingnaturali.com)"},
             timeout=10,
         )
         r.raise_for_status()
@@ -233,6 +233,25 @@ def fetch_destination() -> str | None:
     except (KeyError, IndexError, TypeError):
         pass
     return None
+
+
+def fetch_vessel_name() -> str:
+    """Vessel name for display. ``$VESSEL_NAME`` wins; else SignalK's self
+    name; else "Naturali". SignalK is fed from the active vessel profile, so
+    the briefing names the boat it's actually reporting on without edits.
+    """
+    env_name = os.environ.get("VESSEL_NAME")
+    if env_name and env_name.strip():
+        return env_name.strip()
+    try:
+        r = httpx.get(f"{SIGNALK_URL}/signalk/v1/api/vessels/self/name", timeout=5)
+        r.raise_for_status()
+        name = r.json()
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    except Exception as e:
+        log.warning("fetch_vessel_name: name unavailable (%s)", e)
+    return "Naturali"
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -903,14 +922,15 @@ def prune_empty(briefing: dict) -> dict:
 
 
 def render_html(briefing: dict, wind: dict | None = None, compass_svg: str = "",
-                tide_svg: str = "", tank_panels: list[str] | None = None) -> str:
+                tide_svg: str = "", tank_panels: list[str] | None = None,
+                vessel_name: str = "Naturali") -> str:
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),
         autoescape=select_autoescape(["html"]),
     )
     return env.get_template("briefing.html.j2").render(
         b=briefing, wind=wind, compass_svg=compass_svg, tide_svg=tide_svg,
-        tank_panels=tank_panels or [],
+        tank_panels=tank_panels or [], vessel_name=vessel_name,
     )
 
 
@@ -1022,7 +1042,8 @@ def main(dry_run: bool = False) -> None:
         except Exception as e:
             log.warning("tank panel %s failed: %s", spec.key, e)
 
-    html = render_html(structured, current_wind, compass_svg, tide_svg, tank_panels)
+    html = render_html(structured, current_wind, compass_svg, tide_svg, tank_panels,
+                       vessel_name=fetch_vessel_name())
     markdown = render_markdown(structured)
 
     html_ok = True
