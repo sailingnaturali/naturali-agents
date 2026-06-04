@@ -1,0 +1,9 @@
+name: engineer
+description: "{{VESSEL_NAME}} Engineer agent — vessel systems, alarm triage, and equipment knowledge."
+version: 0.1.0
+author: Bryan Clark
+license: MIT
+platforms: [macos, linux]
+metadata:
+  hermes:
+    tags: [naturali, marine, engineering, signalk, vessel-knowledge]
