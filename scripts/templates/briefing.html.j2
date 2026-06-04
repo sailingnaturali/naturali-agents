@@ -240,5 +240,13 @@
     </div>
     {% endif %}
   </div>
+  <!-- The nav-station iframe loads once and never refetches on its own; the no-cache
+       meta tags above only matter when a request is actually made. Reload ourselves
+       periodically with a fresh cache-buster so a wall display picks up each new day. -->
+  <script>
+    setTimeout(function () {
+      window.location.replace(window.location.pathname + "?v=" + Date.now());
+    }, 30 * 60 * 1000);
+  </script>
 </body>
 </html>
