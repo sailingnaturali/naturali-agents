@@ -1,3 +1,6 @@
+import math
+import re
+
 import respx
 import httpx
 import pytest
@@ -236,6 +239,20 @@ def test_build_wind_compass_renders_svg():
 def test_build_wind_compass_missing_inputs_returns_empty_string():
     assert briefing.build_wind_compass(None, 12.0) == ""
     assert briefing.build_wind_compass(225.0, None) == ""
+
+
+def test_build_wind_compass_arrow_clears_centre_speed():
+    # The arrow shaft (the only stroke-width="4" line) must start well clear of
+    # the centre numeral — its inner end was once at r*0.30 and collided with
+    # the speed digits.
+    svg = briefing.build_wind_compass(225.0, 7.0)
+    m = re.search(
+        r'<line x1="([\d.]+)" y1="([\d.]+)" [^>]*stroke-width="4"', svg
+    )
+    assert m, "arrow shaft line not found"
+    x1, y1 = float(m.group(1)), float(m.group(2))
+    dist = math.hypot(x1 - 80.0, y1 - 80.0)
+    assert dist >= 28.0, f"arrow inner end {dist:.1f}px from centre overlaps the speed numeral"
 
 
 def test_render_markdown_from_structured():

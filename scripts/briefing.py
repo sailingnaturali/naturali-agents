@@ -454,8 +454,9 @@ def build_wind_compass(direction_deg: float | None, speed_kn: float | None) -> s
     sx, sy = cx + (r - 20) * math.sin(th), cy - (r - 20) * math.cos(th)
     parts.append(f'<line x1="{sx:.1f}" y1="{sy:.1f}" x2="{px:.1f}" y2="{py:.1f}" stroke="#5eead4" stroke-width="2"/>')
     parts.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="5" fill="#e5e7eb"/>')
-    # downwind arrow (the direction the wind blows TO), offset into that quadrant
-    t1, t2 = r * 0.30, r * 0.62               # shaft along downwind bearing
+    # downwind arrow (the direction the wind blows TO), kept in the outer band
+    # so it clears the centre speed numeral (inner end >= ~28px from centre)
+    t1, t2 = r * 0.42, r * 0.74               # shaft along downwind bearing
     ax1, ay1 = cx + t1 * math.sin(th2), cy - t1 * math.cos(th2)
     ax2, ay2 = cx + t2 * math.sin(th2), cy - t2 * math.cos(th2)
     ah = math.atan2(ay2 - ay1, ax2 - ax1)
