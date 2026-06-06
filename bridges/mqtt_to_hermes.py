@@ -61,6 +61,34 @@ CLIENT_ID = os.environ.get("MQTT_CLIENT_ID", "naturali-mqtt-bridge")
 INTENTS_TOPIC = "naturali/intents/#"
 
 
+# Severity-based model routing. emergency/alarm get the mature/cloud model
+# (ALARM_MODEL); warn gets WARN_MODEL (empty -> Hermes config default; point it
+# at the local model once that's running). See the agent-alarm-channel design.
+_SEVERITY = {"nominal": 0, "normal": 1, "alert": 2, "warn": 3, "alarm": 4, "emergency": 5}
+
+
+def model_for_state(state: str) -> str | None:
+    """Model id for a severity, or None to use Hermes' configured default."""
+    alarm_model = os.environ.get("ALARM_MODEL", "")
+    warn_model = os.environ.get("WARN_MODEL", "")
+    if _SEVERITY.get(state, 0) >= _SEVERITY["alarm"]:
+        return alarm_model or None
+    return warn_model or None
+
+
+def alert_query(env: dict) -> str:
+    """Seed a Hermes query from an alarm envelope; Hermes gathers the rest."""
+    pos = env.get("position") or {}
+    where = (f" at {pos['latitude']}, {pos['longitude']}"
+             if "latitude" in pos else "")
+    return (
+        f"ALARM: a {env.get('state')} notification fired on the vessel — "
+        f"{env.get('message')} (path {env.get('path')})"
+        f"{where}, time {env.get('timestamp')}. Assess it: gather wind, current, "
+        f"depth and position as relevant and give a concise situation report."
+    )
+
+
 def _run_hermes(query: str) -> None:
     """Run a single Hermes query and pipe the response to MQTT TTS."""
     log.info("hermes query: %s", query)
