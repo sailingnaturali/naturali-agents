@@ -12,7 +12,7 @@ Home Assistant (Pi 5)        Mac Studio                   Pi 5 / boat
                                                               │
                                                               ▼
                                                           signalk-mcp ──▶ SignalK server
-                                                          logbook-mcp ──▶ sqlite
+                                                          logbook-mcp ──▶ signalk-logbook (Pi)
                                                               │
   Piper TTS    ◀──MQTT──   hermes_to_mqtt.py  ◀──stdout──┘
                             (or mqtt_to_hermes
@@ -120,7 +120,8 @@ environment.outside.humidity
 
 Source: <https://github.com/sailingnaturali/logbook-mcp>.
 
-- `mcp_logbook_mark_moment(text: str, position?: {latitude, longitude})` — append an entry. Returns `{ id, timestamp_utc }`. Timestamp is recorded in UTC; UI may render local. If `position` is omitted, the logbook resolves it from the current SignalK fix.
+- `mcp_logbook_mark_moment(text: str, position?: {latitude, longitude})` — append an entry via signalk-logbook on the Pi; the plugin snapshots position/speed/wind/barometer from live SignalK. Returns `{ id, entry_display, timestamp, time_display, position, position_display }`. `time_display` is vessel-local; stored timestamps are UTC. `position` only overrides the GPS fix.
+- `mcp_logbook_read_entries(date?: YYYY-MM-DD)` — a day's entries (default today, vessel-local). Returns `{ date, count, entries[] }`.
 
 ## Time
 

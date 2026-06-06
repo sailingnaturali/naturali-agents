@@ -55,7 +55,7 @@ Home Assistant (Pi 5)        Mac Studio                      data sources
                                                               ▼
                                                         MCP servers:
                                                           signalk-mcp   ──▶ SignalK
-                                                          logbook-mcp   ──▶ sqlite
+                                                          logbook-mcp   ──▶ signalk-logbook (Pi)
                                                           tide-mcp      ──▶ CHS + NOAA
                                                           weather-mcp   ──▶ Open-Meteo / NDBC / Stormglass
                                                           pilotbook-mcp ──▶ anchorage vault
