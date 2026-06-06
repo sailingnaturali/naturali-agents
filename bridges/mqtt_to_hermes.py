@@ -77,15 +77,23 @@ def model_for_state(state: str) -> str | None:
 
 
 def alert_query(env: dict) -> str:
-    """Seed a Hermes query from an alarm envelope; Hermes gathers the rest."""
-    pos = env.get("position") or {}
-    where = (f" at {pos['latitude']}, {pos['longitude']}"
-             if "latitude" in pos else "")
+    """Seed a Hermes query from an alarm envelope.
+
+    The response is spoken over TTS unprompted, so the seed demands a short
+    announcement, not a situation report. Notification messages are built
+    ready-to-speak at the source (e.g. signalk-dsc); raw coordinates and
+    timestamps stay out of the seed so the model can't read them aloud.
+    (2026-06-06: the old "gather wind, current, depth and position" seed had
+    the puck reciting battery status after a DSC distress drill.)
+    """
     return (
-        f"ALARM: a {env.get('state')} notification fired on the vessel — "
-        f"{env.get('message')} (path {env.get('path')})"
-        f"{where}, time {env.get('timestamp')}. Assess it: gather wind, current, "
-        f"depth and position as relevant and give a concise situation report."
+        f"ALARM DISPATCH ({env.get('state')}, path {env.get('path')}): "
+        f'announce this to the Captain now: "{env.get("message")}". '
+        "Speak at most two short sentences: the announcement, plus one action "
+        "only if obvious and urgent. Do not report other systems or readings, "
+        "and never speak coordinates, paths, MMSI numbers, or timestamps. "
+        "Only if the quoted message is bare machine text may you call "
+        "explain_notification(path, state) to phrase it better."
     )
 
 

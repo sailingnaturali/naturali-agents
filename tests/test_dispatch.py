@@ -15,13 +15,23 @@ def test_model_for_state_routes_by_severity(monkeypatch):
     assert b.model_for_state("warn") is None  # empty -> config default
 
 
-def test_alert_query_includes_context():
-    env = {"path": "mob.1", "state": "emergency", "message": "MOB",
+def test_alert_query_is_a_voice_seed_not_a_data_dump():
+    # The response goes straight to TTS unprompted: the seed carries the
+    # ready-to-speak message and demands brevity. Raw coordinates and
+    # timestamps stay OUT so the model can't read them aloud (2026-06-06:
+    # the old "gather wind, current, depth" seed had the puck reciting
+    # battery status after a DSC drill).
+    env = {"path": "dsc.distress", "state": "emergency",
+           "message": "DSC distress alert: unidentified vessel, flooding, "
+                      "5.1 nautical miles west. Monitor channel 16.",
            "timestamp": "2026-06-05T18:22:10Z",
            "position": {"latitude": 48.76, "longitude": -123.05}}
     q = b.alert_query(env)
-    assert "emergency" in q and "mob.1" in q and "MOB" in q
-    assert "48.76" in q and "-123.05" in q
+    assert "emergency" in q and "dsc.distress" in q
+    assert env["message"] in q
+    assert "48.76" not in q and "-123.05" not in q
+    assert "2026-06-05" not in q
+    assert "two" in q.lower()  # the brevity contract is part of the seed
 
 
 def test_handle_alert_invokes_hermes_once_then_dedups(monkeypatch):
