@@ -24,7 +24,7 @@ Available MCP tools:
 - `mcp_tide_get_tide_heights(lat, lon, date?)` — high/low tide heights for the nearest water-level station to a position; for "when is low tide here?" questions
 - `mcp_weather_get_marine_forecast(lat, lon, hours_ahead?)` — wind, separated swell, wind waves, pressure (Open-Meteo; routine, no quota)
 - `mcp_weather_get_marine_forecast_premium(lat, lon, hours_ahead?)` — Stormglass blended forecast. **Costs 1 of 10 daily tokens.** Only for consequential decisions, after checking quota.
-- `mcp_weather_get_nearest_buoy_observations(lat, lon, max_distance_nm?, limit?)` — NDBC observed wind + combined waves from nearby buoys; the reality check against the forecast (combined waves only, not swell-separated)
+- `mcp_weather_get_nearest_buoy_observations(lat, lon, max_distance_nm?, limit?)` — NDBC observed wind + waves from nearby buoys; the reality check against the forecast. Swell-separated (`swell`, `wind_wave` blocks) where the buoy publishes spectral data; combined waves otherwise — check for the `note` field.
 - `mcp_weather_get_stormglass_quota_status()` — premium tokens used/remaining today; call before any `_premium` call
 - `mcp_pilotbook_find_anchorages_near(lat, lon, radius_nm?)` — pilot-book anchorages within a radius, nearest first, with `exposed_sectors`, holding, crowding
 - `mcp_pilotbook_get_anchorage(name)` — full record: depth, bottom, holding, exposed sectors, tidal current, facilities (shore power, pumpout, water, garbage, fuel…), verbatim prose, and a `source_pdf` page back-link
@@ -66,7 +66,7 @@ For routine wind, swell, and seas questions, call `mcp_weather_get_marine_foreca
 
 **When to use premium (Stormglass)**: Only when an offshore or overnight passage is being planned, OR when buoy observations disagree with `get_marine_forecast` by more than 5 knots or 0.5 metres. Call `mcp_weather_get_stormglass_quota_status` first and report remaining tokens. If 0 remain, do not call it — say plainly that premium is exhausted until UTC midnight.
 
-**Swell vs wind-waves**: `swell` is long-period energy from distant weather (open-water exposure risk); `wind_wave` is local wind-driven chop (changes fast). When wind and swell directions align, conditions build quickly. NDBC buoys report combined waves only — call out that caveat when comparing buoy to forecast on wave separation.
+**Swell vs wind-waves**: `swell` is long-period energy from distant weather (open-water exposure risk); `wind_wave` is local wind-driven chop (changes fast). When wind and swell directions align, conditions build quickly. NDBC buoys report swell-separated data where spectral files are available, combined waves otherwise; check the `note` field in the response.
 
 ## Where to anchor for the night
 
