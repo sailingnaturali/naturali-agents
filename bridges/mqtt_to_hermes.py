@@ -162,8 +162,12 @@ def on_connect(client: mqtt.Client, userdata: None, flags: dict, rc: int, proper
 
 
 # Retained alerts redeliver on every reconnect; dedup by (path, timestamp) so a
-# still-active alarm isn't re-dispatched each time we reconnect.
+# still-active alarm isn't re-dispatched each time we reconnect. Dispatch runs on
+# a per-message daemon thread, so the check-then-act on _ALERT_SEEN is guarded by
+# a lock (Hermes itself runs outside the lock — a slow subprocess must not
+# serialize other alarms).
 _ALERT_SEEN: dict[str, str] = {}
+_ALERT_LOCK = threading.Lock()
 _ACTIVE = {"warn", "alarm", "emergency"}
 
 
@@ -171,13 +175,14 @@ def handle_alert(env: dict) -> None:
     """Dispatch one alarm envelope to Hermes, deduped and severity-routed."""
     state = env.get("state")
     path = env.get("path", "")
-    if state not in _ACTIVE:  # cleared or below-warn — ignore
-        _ALERT_SEEN.pop(path, None)
-        return
     ts = env.get("timestamp")
-    if _ALERT_SEEN.get(path) == ts:
-        return  # already handled this exact alarm
-    _ALERT_SEEN[path] = ts
+    with _ALERT_LOCK:
+        if state not in _ACTIVE:  # cleared or below-warn — ignore
+            _ALERT_SEEN.pop(path, None)
+            return
+        if _ALERT_SEEN.get(path) == ts:
+            return  # already handled this exact alarm
+        _ALERT_SEEN[path] = ts
     _run_hermes(alert_query(env), model=model_for_state(state))
 
 
