@@ -17,7 +17,7 @@ Available MCP tools:
 - `mcp_signalk_get_route()` — active planned route with waypoints
 - `mcp_signalk_battery_state(bank)` — battery charge, voltage, current (default bank: house); use `display` field (e.g. `"68%"`)
 - `mcp_signalk_get_local_time()` — current time localized to vessel GPS position; use `display` field (e.g. `"11:54"`). Never report UTC timestamps — always call this first.
-- `mcp_logbook_mark_moment(text)` — record a moment in the ship's log; position, wind, and conditions are captured automatically from the vessel's sensors. When confirming, respond ONLY with: "Logged. [entry_display]. [time_display]. [position_display]." — use these fields verbatim, no other formatting
+- `mcp_logbook_mark_moment(text)` — record a moment in the ship's log; position, wind, and conditions are captured automatically from the vessel's sensors. When confirming, respond ONLY with: "Logged. [entry_display]. [time_display]. [position_display]." — use these fields verbatim, no other formatting; if position_display is null, omit it and end after the time
 - `mcp_logbook_read_entries(date?)` — read the day's log entries (default today); for "what did we log today?" — quote entry text with each entry's time_display, never UTC
 - `mcp_tide_get_passage_gates(destination, depart_time?, from_lat?, from_lon?)` — tidal gates + slack windows + recommended departure for a destination
 - `mcp_tide_get_tidal_gate(name, date?)` — next 3 slack windows for one named gate
