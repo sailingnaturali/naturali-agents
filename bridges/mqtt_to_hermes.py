@@ -61,12 +61,43 @@ CLIENT_ID = os.environ.get("MQTT_CLIENT_ID", "naturali-mqtt-bridge")
 INTENTS_TOPIC = "naturali/intents/#"
 
 
-def _run_hermes(query: str) -> None:
+# Severity-based model routing. emergency/alarm get the mature/cloud model
+# (ALARM_MODEL); warn gets WARN_MODEL (empty -> Hermes config default; point it
+# at the local model once that's running). See the agent-alarm-channel design.
+_SEVERITY = {"nominal": 0, "normal": 1, "alert": 2, "warn": 3, "alarm": 4, "emergency": 5}
+
+
+def model_for_state(state: str) -> str | None:
+    """Model id for a severity, or None to use Hermes' configured default."""
+    alarm_model = os.environ.get("ALARM_MODEL", "")
+    warn_model = os.environ.get("WARN_MODEL", "")
+    if _SEVERITY.get(state, 0) >= _SEVERITY["alarm"]:
+        return alarm_model or None
+    return warn_model or None
+
+
+def alert_query(env: dict) -> str:
+    """Seed a Hermes query from an alarm envelope; Hermes gathers the rest."""
+    pos = env.get("position") or {}
+    where = (f" at {pos['latitude']}, {pos['longitude']}"
+             if "latitude" in pos else "")
+    return (
+        f"ALARM: a {env.get('state')} notification fired on the vessel — "
+        f"{env.get('message')} (path {env.get('path')})"
+        f"{where}, time {env.get('timestamp')}. Assess it: gather wind, current, "
+        f"depth and position as relevant and give a concise situation report."
+    )
+
+
+def _run_hermes(query: str, model: str | None = None) -> None:
     """Run a single Hermes query and pipe the response to MQTT TTS."""
     log.info("hermes query: %s", query)
+    cmd = [HERMES, "chat", "-Q", "-s", HERMES_SKILL, "-q", query]
+    if model:
+        cmd[2:2] = ["-m", model]  # insert after "chat"
     try:
         result = subprocess.run(
-            [HERMES, "chat", "-Q", "-s", HERMES_SKILL, "-q", query],
+            cmd,
             capture_output=True,
             text=True,
             timeout=60,
@@ -124,19 +155,49 @@ def on_connect(client: mqtt.Client, userdata: None, flags: dict, rc: int, proper
         # we're briefly offline (see CLIENT_ID / clean_session in main()).
         client.subscribe(INTENTS_TOPIC, qos=1)
         log.info("subscribed to %s (qos=1)", INTENTS_TOPIC)
+        client.subscribe("naturali/alerts/#", qos=1)
+        log.info("subscribed to naturali/alerts/# (qos=1)")
     else:
         log.error("connection failed, rc=%d", rc)
 
 
-def _dispatch(topic: str, text: str) -> None:
-    """Handle one intent. Runs on a worker thread, not the MQTT loop."""
-    if topic == "naturali/intents/ask":
+# Retained alerts redeliver on every reconnect; dedup by (path, timestamp) so a
+# still-active alarm isn't re-dispatched each time we reconnect. Dispatch runs on
+# a per-message daemon thread, so the check-then-act on _ALERT_SEEN is guarded by
+# a lock (Hermes itself runs outside the lock — a slow subprocess must not
+# serialize other alarms).
+_ALERT_SEEN: dict[str, str] = {}
+_ALERT_LOCK = threading.Lock()
+_ACTIVE = {"warn", "alarm", "emergency"}
+
+
+def handle_alert(env: dict) -> None:
+    """Dispatch one alarm envelope to Hermes, deduped and severity-routed."""
+    state = env.get("state")
+    path = env.get("path", "")
+    ts = env.get("timestamp")
+    with _ALERT_LOCK:
+        if state not in _ACTIVE:  # cleared or below-warn — ignore
+            _ALERT_SEEN.pop(path, None)
+            return
+        if _ALERT_SEEN.get(path) == ts:
+            return  # already handled this exact alarm
+        _ALERT_SEEN[path] = ts
+    _run_hermes(alert_query(env), model=model_for_state(state))
+
+
+def _dispatch(topic: str, payload: dict) -> None:
+    """Handle one message. Runs on a worker thread, not the MQTT loop."""
+    if topic.startswith("naturali/alerts/"):
+        handle_alert(payload)
+    elif topic == "naturali/intents/ask":
+        text = payload.get("text", "").strip()
         if text:
             _run_hermes(text)
     elif topic == "naturali/intents/briefing":
         _run_briefing()
     else:
-        log.warning("unhandled intent topic: %s", topic)
+        log.warning("unhandled topic: %s", topic)
 
 
 def on_message(client: mqtt.Client, userdata: None, msg: mqtt.MQTTMessage) -> None:
@@ -146,14 +207,13 @@ def on_message(client: mqtt.Client, userdata: None, msg: mqtt.MQTTMessage) -> No
     except (json.JSONDecodeError, UnicodeDecodeError):
         payload = {"text": msg.payload.decode(errors="replace")}
 
-    text = payload.get("text", "").strip()
     log.info("intent: %s payload=%s", topic, payload)
 
     # Dispatch off the network loop so on_message returns immediately. A briefing
     # can take minutes; blocking here would stall keepalive (dropping the
     # connection) and delay the QoS-1 ack (triggering broker redelivery — i.e.
     # duplicate briefings). The worker thread does the slow work.
-    threading.Thread(target=_dispatch, args=(topic, text), daemon=True).start()
+    threading.Thread(target=_dispatch, args=(topic, payload), daemon=True).start()
 
 
 def main() -> None:
