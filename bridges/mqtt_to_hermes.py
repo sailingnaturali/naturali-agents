@@ -213,13 +213,15 @@ def _run_hermes(query: str, model: str | None = None,
                    response=response, dt_publish=dt_publish, model=model)
 
 
-def _run_briefing() -> None:
+def _run_briefing(timing: dict | None = None) -> None:
     """Invoke briefing.py as a subprocess. It handles all publishing internally."""
     log.info("triggering daily briefing generation")
     scripts_dir = os.path.abspath(
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts")
     )
     briefing_script = os.path.join(scripts_dir, "briefing.py")
+    t0 = time.monotonic()
+    rc: int | str
     try:
         result = subprocess.run(
             [CAFFEINATE, "-i", "-s", UV, "run", briefing_script],
@@ -227,12 +229,21 @@ def _run_briefing() -> None:
             capture_output=True,
             text=True,
         )
+        rc = result.returncode
         if result.returncode != 0:
             log.error("briefing.py failed (rc=%d): %s", result.returncode, result.stderr.strip())
         else:
             log.info("briefing complete")
     except subprocess.TimeoutExpired:
         log.error("briefing.py timed out after 300s")
+        rc = "timeout"
+    if timing is not None:
+        append_timing_record(build_record(
+            timing["kind"], timing["trace_id"], timing["ts"],
+            t_ha=timing["t_ha"], t_receive_wall=timing["t_wall"],
+            dt_subprocess=time.monotonic() - t0,
+            rc=rc,
+        ))
 
 
 def on_connect(client: mqtt.Client, userdata: None, flags: dict, rc: int, properties=None) -> None:
@@ -282,7 +293,7 @@ def _dispatch(topic: str, payload: dict) -> None:
         if text:
             _run_hermes(text, timing=_timing_ctx("ask", payload))
     elif topic == "naturali/intents/briefing":
-        _run_briefing()
+        _run_briefing(timing=_timing_ctx("briefing", payload))
     else:
         log.warning("unhandled topic: %s", topic)
 

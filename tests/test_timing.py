@@ -162,3 +162,15 @@ def test_empty_response_records_without_publishing(tmp_path, monkeypatch):
     assert rec["response_chars"] == 0
     assert rec["dt_publish"] is None
     assert published == []
+
+
+def test_briefing_dispatch_records_subprocess_time(tmp_path, monkeypatch):
+    path, _ = _instrument(monkeypatch, tmp_path)
+    b._dispatch("naturali/intents/briefing",
+                {"source": "scheduled", "t_ha": time.time() - 1.0})
+    rec = json.loads(path.read_text().splitlines()[0])
+    assert rec["kind"] == "briefing"
+    assert rec["rc"] == 0
+    assert rec["dt_subprocess"] >= 0.0
+    assert 0.0 < rec["dt_transport"] < 5.0
+    assert "dt_hermes" not in rec and "dt_publish" not in rec and "dt_total" not in rec
