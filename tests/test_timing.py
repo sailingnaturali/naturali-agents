@@ -150,3 +150,15 @@ def test_alert_dispatch_records_kind_and_model(tmp_path, monkeypatch):
     assert rec["dt_transport"] is None  # alert envelopes carry no t_ha
     assert rec["model"] == "claude"
     assert len(published) == 1
+
+
+def test_empty_response_records_without_publishing(tmp_path, monkeypatch):
+    path, published = _instrument(
+        monkeypatch, tmp_path, run=lambda cmd, **kw: FakeCompleted(stdout="")
+    )
+    b._dispatch("naturali/intents/ask", {"text": "hi", "t_ha": time.time()})
+    rec = json.loads(path.read_text().splitlines()[0])
+    assert rec["rc"] == 0
+    assert rec["response_chars"] == 0
+    assert rec["dt_publish"] is None
+    assert published == []

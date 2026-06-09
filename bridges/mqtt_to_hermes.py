@@ -196,7 +196,7 @@ def _run_hermes(query: str, model: str | None = None,
 
     lines = [l for l in result.stdout.splitlines() if is_response_line(l)]
     response = " ".join(lines).strip()
-    dt_publish = 0.0
+    dt_publish = None  # stays None when nothing was published
     if response:
         log.info("hermes response: %s", response)
         auth = {"username": MQTT_USER, "password": MQTT_PASSWORD} if MQTT_USER else None
