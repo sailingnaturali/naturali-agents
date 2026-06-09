@@ -36,7 +36,7 @@ def test_alert_query_is_a_voice_seed_not_a_data_dump():
 
 def test_handle_alert_invokes_hermes_once_then_dedups(monkeypatch):
     calls = []
-    monkeypatch.setattr(b, "_run_hermes", lambda q, model=None: calls.append((q, model)))
+    monkeypatch.setattr(b, "_run_hermes", lambda q, model=None, timing=None: calls.append((q, model)))
     b._ALERT_SEEN.clear()
     env = {"path": "mob.1", "state": "emergency", "message": "MOB",
            "timestamp": "t1", "position": {"latitude": 48.76, "longitude": -123.05}}
@@ -48,7 +48,7 @@ def test_handle_alert_invokes_hermes_once_then_dedups(monkeypatch):
 
 def test_handle_alert_skips_cleared_and_below_warn(monkeypatch):
     calls = []
-    monkeypatch.setattr(b, "_run_hermes", lambda q, model=None: calls.append(q))
+    monkeypatch.setattr(b, "_run_hermes", lambda q, model=None, timing=None: calls.append(q))
     b._ALERT_SEEN.clear()
     b.handle_alert({"path": "x", "state": "normal", "timestamp": "t"})
     b.handle_alert({"path": "y", "state": "alert", "timestamp": "t"})
@@ -57,7 +57,7 @@ def test_handle_alert_skips_cleared_and_below_warn(monkeypatch):
 
 def test_new_timestamp_reinvokes(monkeypatch):
     calls = []
-    monkeypatch.setattr(b, "_run_hermes", lambda q, model=None: calls.append(q))
+    monkeypatch.setattr(b, "_run_hermes", lambda q, model=None, timing=None: calls.append(q))
     b._ALERT_SEEN.clear()
     b.handle_alert({"path": "mob.1", "state": "emergency", "timestamp": "t1"})
     b.handle_alert({"path": "mob.1", "state": "emergency", "timestamp": "t2"})

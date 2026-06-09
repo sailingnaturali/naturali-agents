@@ -100,6 +100,36 @@ def append_timing_record(record: dict) -> None:
         log.warning("timing record write failed: %s", e)
 
 
+def _timing_ctx(kind: str, payload: dict) -> dict:
+    """Capture receive-time clocks for one dispatch."""
+    return {
+        "kind": kind,
+        "trace_id": uuid.uuid4().hex[:6],
+        "ts": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "t_ha": _parse_t_ha(payload),
+        "t_wall": time.time(),
+        "t_mono": time.monotonic(),
+    }
+
+
+def _record_hermes(timing: dict | None, *, dt_hermes: float, rc, query: str,
+                   response: str, dt_publish: float | None = None,
+                   model: str | None = None) -> None:
+    if timing is None:
+        return
+    append_timing_record(build_record(
+        timing["kind"], timing["trace_id"], timing["ts"],
+        t_ha=timing["t_ha"], t_receive_wall=timing["t_wall"],
+        dt_hermes=dt_hermes,
+        dt_publish=dt_publish,
+        dt_total=time.monotonic() - timing["t_mono"],
+        query_chars=len(query),
+        response_chars=len(response),
+        rc=rc,
+        model=model,
+    ))
+
+
 # Severity-based model routing. emergency/alarm get the mature/cloud model
 # (ALARM_MODEL); warn gets WARN_MODEL (empty -> Hermes config default; point it
 # at the local model once that's running). See the agent-alarm-channel design.
@@ -136,12 +166,14 @@ def alert_query(env: dict) -> str:
     )
 
 
-def _run_hermes(query: str, model: str | None = None) -> None:
+def _run_hermes(query: str, model: str | None = None,
+                timing: dict | None = None) -> None:
     """Run a single Hermes query and pipe the response to MQTT TTS."""
     log.info("hermes query: %s", query)
     cmd = [HERMES, "chat", "-Q", "-s", HERMES_SKILL, "-q", query]
     if model:
         cmd[2:2] = ["-m", model]  # insert after "chat"
+    t0 = time.monotonic()
     try:
         result = subprocess.run(
             cmd,
@@ -151,26 +183,34 @@ def _run_hermes(query: str, model: str | None = None) -> None:
         )
     except subprocess.TimeoutExpired:
         log.error("hermes timed out for query: %s", query)
+        _record_hermes(timing, dt_hermes=time.monotonic() - t0, rc="timeout",
+                       query=query, response="", model=model)
         return
+    dt_hermes = time.monotonic() - t0
 
     if result.returncode != 0:
         log.error("hermes exit=%d stderr: %s", result.returncode, result.stderr.strip())
+        _record_hermes(timing, dt_hermes=dt_hermes, rc=result.returncode,
+                       query=query, response="", model=model)
         return
 
     lines = [l for l in result.stdout.splitlines() if is_response_line(l)]
     response = " ".join(lines).strip()
-    if not response:
-        return
-
-    log.info("hermes response: %s", response)
-    auth = {"username": MQTT_USER, "password": MQTT_PASSWORD} if MQTT_USER else None
-    publish.single(
-        SAY_TOPIC,
-        payload=json.dumps({"agent": AGENT_NAME, "text": response}),
-        hostname=BROKER,
-        port=PORT,
-        auth=auth,
-    )
+    dt_publish = 0.0
+    if response:
+        log.info("hermes response: %s", response)
+        auth = {"username": MQTT_USER, "password": MQTT_PASSWORD} if MQTT_USER else None
+        t_pub = time.monotonic()
+        publish.single(
+            SAY_TOPIC,
+            payload=json.dumps({"agent": AGENT_NAME, "text": response}),
+            hostname=BROKER,
+            port=PORT,
+            auth=auth,
+        )
+        dt_publish = time.monotonic() - t_pub
+    _record_hermes(timing, dt_hermes=dt_hermes, rc=result.returncode, query=query,
+                   response=response, dt_publish=dt_publish, model=model)
 
 
 def _run_briefing() -> None:
@@ -218,7 +258,7 @@ _ALERT_LOCK = threading.Lock()
 _ACTIVE = {"warn", "alarm", "emergency"}
 
 
-def handle_alert(env: dict) -> None:
+def handle_alert(env: dict, timing: dict | None = None) -> None:
     """Dispatch one alarm envelope to Hermes, deduped and severity-routed."""
     state = env.get("state")
     path = env.get("path", "")
@@ -230,17 +270,17 @@ def handle_alert(env: dict) -> None:
         if _ALERT_SEEN.get(path) == ts:
             return  # already handled this exact alarm
         _ALERT_SEEN[path] = ts
-    _run_hermes(alert_query(env), model=model_for_state(state))
+    _run_hermes(alert_query(env), model=model_for_state(state), timing=timing)
 
 
 def _dispatch(topic: str, payload: dict) -> None:
     """Handle one message. Runs on a worker thread, not the MQTT loop."""
     if topic.startswith("naturali/alerts/"):
-        handle_alert(payload)
+        handle_alert(payload, timing=_timing_ctx("alert", payload))
     elif topic == "naturali/intents/ask":
         text = payload.get("text", "").strip()
         if text:
-            _run_hermes(text)
+            _run_hermes(text, timing=_timing_ctx("ask", payload))
     elif topic == "naturali/intents/briefing":
         _run_briefing()
     else:

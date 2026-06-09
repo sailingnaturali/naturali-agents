@@ -1,6 +1,8 @@
 import json
 import logging
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "bridges"))
@@ -68,3 +70,83 @@ def test_append_timing_record_nan_warns_instead_of_corrupting(tmp_path, monkeypa
         b.append_timing_record({"trace_id": "a", "dt_total": float("nan")})  # must not raise
     assert "timing record" in caplog.text
     assert path.stat().st_size == 0  # file created but empty due to exception
+
+
+class FakeCompleted:
+    def __init__(self, stdout="Wind is 12 knots, Captain.", returncode=0):
+        self.stdout = stdout
+        self.stderr = ""
+        self.returncode = returncode
+
+
+def _instrument(monkeypatch, tmp_path, run=None):
+    """Patch timing path, subprocess.run, and MQTT publish; return (path, published)."""
+    path = tmp_path / "voice-timing.jsonl"
+    monkeypatch.setattr(b, "TIMING_PATH", str(path))
+    monkeypatch.setattr(
+        b.subprocess, "run", run or (lambda cmd, **kw: FakeCompleted())
+    )
+    published = []
+    monkeypatch.setattr(
+        b.publish, "single", lambda *a, **kw: published.append((a, kw))
+    )
+    return path, published
+
+
+def test_ask_dispatch_writes_full_record(tmp_path, monkeypatch):
+    path, published = _instrument(monkeypatch, tmp_path)
+    b._dispatch("naturali/intents/ask",
+                {"text": "what's the wind?", "t_ha": time.time() - 0.5})
+    rec = json.loads(path.read_text().splitlines()[0])
+    assert rec["kind"] == "ask"
+    assert 0.0 < rec["dt_transport"] < 5.0
+    assert rec["rc"] == 0
+    assert rec["query_chars"] == len("what's the wind?")
+    assert rec["response_chars"] == len("Wind is 12 knots, Captain.")
+    assert rec["dt_total"] >= rec["dt_hermes"] >= 0.0
+    assert rec["model"] is None
+    assert len(rec["trace_id"]) == 6
+    assert len(published) == 1
+
+
+def test_say_payload_unchanged_by_timing(tmp_path, monkeypatch):
+    _, published = _instrument(monkeypatch, tmp_path)
+    b._dispatch("naturali/intents/ask", {"text": "hi", "t_ha": time.time()})
+    payload = json.loads(published[0][1]["payload"])
+    assert set(payload) == {"agent", "text"}  # no timing leakage into TTS path
+
+
+def test_hermes_timeout_still_writes_record(tmp_path, monkeypatch):
+    def boom(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, 60)
+    path, published = _instrument(monkeypatch, tmp_path, run=boom)
+    b._dispatch("naturali/intents/ask", {"text": "hi", "t_ha": time.time()})
+    rec = json.loads(path.read_text().splitlines()[0])
+    assert rec["rc"] == "timeout"
+    assert rec["response_chars"] == 0
+    assert published == []
+
+
+def test_nonzero_exit_still_writes_record(tmp_path, monkeypatch):
+    path, published = _instrument(
+        monkeypatch, tmp_path, run=lambda cmd, **kw: FakeCompleted(returncode=3)
+    )
+    b._dispatch("naturali/intents/ask", {"text": "hi"})
+    rec = json.loads(path.read_text().splitlines()[0])
+    assert rec["rc"] == 3
+    assert rec["dt_transport"] is None  # no t_ha in payload
+    assert published == []
+
+
+def test_alert_dispatch_records_kind_and_model(tmp_path, monkeypatch):
+    monkeypatch.setenv("ALARM_MODEL", "claude")
+    path, published = _instrument(monkeypatch, tmp_path)
+    b._ALERT_SEEN.clear()
+    b._dispatch("naturali/alerts/electrical",
+                {"path": "electrical.batteries.0", "state": "alarm",
+                 "message": "Battery voltage critical.", "timestamp": "t1"})
+    rec = json.loads(path.read_text().splitlines()[0])
+    assert rec["kind"] == "alert"
+    assert rec["dt_transport"] is None  # alert envelopes carry no t_ha
+    assert rec["model"] == "claude"
+    assert len(published) == 1
