@@ -90,6 +90,16 @@ def build_record(kind: str, trace_id: str, ts: str, *, t_ha: float | None,
     return record
 
 
+def append_timing_record(record: dict) -> None:
+    """Append one JSONL line; instrumentation must never break the voice path."""
+    try:
+        os.makedirs(os.path.dirname(TIMING_PATH), exist_ok=True)
+        with open(TIMING_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+    except OSError as e:
+        log.warning("timing record write failed: %s", e)
+
+
 # Severity-based model routing. emergency/alarm get the mature/cloud model
 # (ALARM_MODEL); warn gets WARN_MODEL (empty -> Hermes config default; point it
 # at the local model once that's running). See the agent-alarm-channel design.

@@ -1,3 +1,5 @@
+import json
+import logging
 import sys
 from pathlib import Path
 
@@ -38,3 +40,22 @@ def test_build_record_missing_t_ha_gives_null_transport():
 def test_build_record_negative_skew_recorded_as_is():
     rec = b.build_record("ask", "x", "ts", t_ha=100.5, t_receive_wall=100.0, rc=0)
     assert rec["dt_transport"] == -0.5
+
+
+def test_append_timing_record_appends_jsonl(tmp_path, monkeypatch):
+    path = tmp_path / "logs" / "voice-timing.jsonl"  # dir doesn't exist yet
+    monkeypatch.setattr(b, "TIMING_PATH", str(path))
+    b.append_timing_record({"trace_id": "a", "kind": "ask"})
+    b.append_timing_record({"trace_id": "b", "kind": "alert"})
+    lines = path.read_text().splitlines()
+    assert [json.loads(l)["trace_id"] for l in lines] == ["a", "b"]
+
+
+def test_append_timing_record_never_raises(tmp_path, monkeypatch, caplog):
+    # A *file* where the parent dir should be → makedirs/open fails.
+    blocker = tmp_path / "blocker"
+    blocker.write_text("")
+    monkeypatch.setattr(b, "TIMING_PATH", str(blocker / "voice-timing.jsonl"))
+    with caplog.at_level(logging.WARNING):
+        b.append_timing_record({"trace_id": "a"})  # must not raise
+    assert "timing record" in caplog.text
