@@ -95,8 +95,8 @@ def append_timing_record(record: dict) -> None:
     try:
         os.makedirs(os.path.dirname(TIMING_PATH), exist_ok=True)
         with open(TIMING_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record) + "\n")
-    except OSError as e:
+            f.write(json.dumps(record, allow_nan=False) + "\n")
+    except (OSError, ValueError) as e:
         log.warning("timing record write failed: %s", e)
 
 

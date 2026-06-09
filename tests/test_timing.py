@@ -59,3 +59,12 @@ def test_append_timing_record_never_raises(tmp_path, monkeypatch, caplog):
     with caplog.at_level(logging.WARNING):
         b.append_timing_record({"trace_id": "a"})  # must not raise
     assert "timing record" in caplog.text
+
+
+def test_append_timing_record_nan_warns_instead_of_corrupting(tmp_path, monkeypatch, caplog):
+    path = tmp_path / "voice-timing.jsonl"
+    monkeypatch.setattr(b, "TIMING_PATH", str(path))
+    with caplog.at_level(logging.WARNING):
+        b.append_timing_record({"trace_id": "a", "dt_total": float("nan")})  # must not raise
+    assert "timing record" in caplog.text
+    assert path.stat().st_size == 0  # file created but empty due to exception
