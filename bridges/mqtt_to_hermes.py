@@ -26,6 +26,9 @@ import os
 import shutil
 import subprocess
 import threading
+import time
+import uuid
+from datetime import datetime
 
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
@@ -59,6 +62,32 @@ SAY_TOPIC = f"naturali/agents/{AGENT_NAME}/say"
 # delivers them on reconnect instead of dropping them.
 CLIENT_ID = os.environ.get("MQTT_CLIENT_ID", "naturali-mqtt-bridge")
 INTENTS_TOPIC = "naturali/intents/#"
+
+# --- voice-timing instrumentation (spec: 2026-06-09-voice-latency-instrumentation) ---
+TIMING_PATH = os.path.expanduser("~/Library/Logs/naturali/voice-timing.jsonl")
+
+
+def _parse_t_ha(payload: dict) -> float | None:
+    """Epoch-seconds stamp HA puts in intent payloads; None when absent/garbled.
+    bool is an int subclass — reject it explicitly."""
+    t = payload.get("t_ha")
+    if isinstance(t, bool):
+        return None
+    return float(t) if isinstance(t, (int, float)) else None
+
+
+def build_record(kind: str, trace_id: str, ts: str, *, t_ha: float | None,
+                 t_receive_wall: float, **fields) -> dict:
+    """One timing record. dt_transport crosses the HA↔Studio clock boundary —
+    approximate, None when t_ha is absent, negative under skew (never clamped).
+    Float fields are rounded to 3 decimals; ints/None/str pass through."""
+    record: dict = {"trace_id": trace_id, "ts": ts, "kind": kind}
+    record["dt_transport"] = (
+        round(t_receive_wall - t_ha, 3) if t_ha is not None else None
+    )
+    for key, value in fields.items():
+        record[key] = round(value, 3) if isinstance(value, float) else value
+    return record
 
 
 # Severity-based model routing. emergency/alarm get the mature/cloud model
