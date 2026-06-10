@@ -113,7 +113,9 @@ def test_say_payload_unchanged_by_timing(tmp_path, monkeypatch):
     _, published = _instrument(monkeypatch, tmp_path)
     b._dispatch("naturali/intents/ask", {"text": "hi", "t_ha": time.time()})
     payload = json.loads(published[0][1]["payload"])
-    assert set(payload) == {"agent", "text"}  # no timing leakage into TTS path
+    # No timing fields in the TTS path. (HA's round-trip trace_id — a separate
+    # feature — is echoed into say only when the ask payload carries one.)
+    assert set(payload) == {"agent", "text"}
 
 
 def test_hermes_timeout_still_writes_record(tmp_path, monkeypatch):

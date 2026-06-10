@@ -122,6 +122,8 @@ def _record_hermes(timing: dict | None, *, dt_hermes: float, rc, query: str,
         t_ha=timing["t_ha"], t_receive_wall=timing["t_wall"],
         dt_hermes=dt_hermes,
         dt_publish=dt_publish,
+        # receive → dispatch-end, so it carries µs of inter-measurement
+        # overhead: hops won't sum exactly to dt_total.
         dt_total=time.monotonic() - timing["t_mono"],
         query_chars=len(query),
         response_chars=len(response),
