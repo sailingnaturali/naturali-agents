@@ -62,3 +62,57 @@ def test_new_timestamp_reinvokes(monkeypatch):
     b.handle_alert({"path": "mob.1", "state": "emergency", "timestamp": "t1"})
     b.handle_alert({"path": "mob.1", "state": "emergency", "timestamp": "t2"})
     assert len(calls) == 2
+
+
+import json
+import types
+
+
+def _fake_hermes_ok(*args, **kwargs):
+    return types.SimpleNamespace(
+        returncode=0, stdout="Wind is 12 knots northwest.", stderr="")
+
+
+def test_ask_reply_echoes_trace_id(monkeypatch):
+    published = []
+    monkeypatch.setattr(b.subprocess, "run", _fake_hermes_ok)
+    monkeypatch.setattr(
+        b.publish, "single",
+        lambda topic, payload=None, **kw: published.append((topic, json.loads(payload))))
+    b._run_hermes("what's the wind?", trace_id="ha17654321")
+    assert len(published) == 1
+    topic, say = published[0]
+    assert topic == b.SAY_TOPIC
+    assert say["trace_id"] == "ha17654321"
+    assert say["text"] == "Wind is 12 knots northwest."
+
+
+def test_say_omits_trace_id_when_absent(monkeypatch):
+    # Alarm/briefing-style says must NOT carry trace_id — its absence is the
+    # discriminator the HA announce automation keys on.
+    published = []
+    monkeypatch.setattr(b.subprocess, "run", _fake_hermes_ok)
+    monkeypatch.setattr(
+        b.publish, "single",
+        lambda topic, payload=None, **kw: published.append(json.loads(payload)))
+    b._run_hermes("ALARM DISPATCH: announce this")
+    assert len(published) == 1
+    assert "trace_id" not in published[0]
+
+
+def test_dispatch_ask_passes_trace_id(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        b, "_run_hermes",
+        lambda q, model=None, timing=None, trace_id=None: seen.update(tid=trace_id))
+    b._dispatch("naturali/intents/ask", {"text": "hi", "trace_id": "abc123"})
+    assert seen["tid"] == "abc123"
+
+
+def test_dispatch_ask_without_trace_id_passes_none(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        b, "_run_hermes",
+        lambda q, model=None, timing=None, trace_id=None: seen.update(tid=trace_id))
+    b._dispatch("naturali/intents/ask", {"text": "hi"})
+    assert seen["tid"] is None

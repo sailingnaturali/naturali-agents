@@ -167,8 +167,13 @@ def alert_query(env: dict) -> str:
 
 
 def _run_hermes(query: str, model: str | None = None,
-                timing: dict | None = None) -> None:
-    """Run a single Hermes query and pipe the response to MQTT TTS."""
+                timing: dict | None = None, trace_id: str | None = None) -> None:
+    """Run a single Hermes query and pipe the response to MQTT TTS.
+
+    trace_id, when present (asks from HA), is echoed into the say payload so
+    HA's waiting intent script can match the reply. Unsolicited says (alarms,
+    briefing) carry no trace_id — HA announces those on the puck instead.
+    """
     log.info("hermes query: %s", query)
     cmd = [HERMES, "chat", "-Q", "-s", HERMES_SKILL, "-q", query]
     if model:
@@ -200,10 +205,13 @@ def _run_hermes(query: str, model: str | None = None,
     if response:
         log.info("hermes response: %s", response)
         auth = {"username": MQTT_USER, "password": MQTT_PASSWORD} if MQTT_USER else None
+        say: dict = {"agent": AGENT_NAME, "text": response}
+        if trace_id:
+            say["trace_id"] = trace_id
         t_pub = time.monotonic()
         publish.single(
             SAY_TOPIC,
-            payload=json.dumps({"agent": AGENT_NAME, "text": response}),
+            payload=json.dumps(say),
             hostname=BROKER,
             port=PORT,
             auth=auth,
@@ -291,7 +299,8 @@ def _dispatch(topic: str, payload: dict) -> None:
     elif topic == "naturali/intents/ask":
         text = payload.get("text", "").strip()
         if text:
-            _run_hermes(text, timing=_timing_ctx("ask", payload))
+            _run_hermes(text, timing=_timing_ctx("ask", payload),
+                        trace_id=payload.get("trace_id") or None)
     elif topic == "naturali/intents/briefing":
         _run_briefing(timing=_timing_ctx("briefing", payload))
     else:
