@@ -27,10 +27,15 @@ cd "${REPO_DIR}"
 # Prevent duplicate instances.  If a previous invocation is still alive (e.g.
 # launchctl load was called while bootout was skipped), exit immediately so
 # launchd's KeepAlive doesn't stack a second daemon on top of the first.
+# Also verify the recorded PID actually belongs to our process — a recycled PID
+# from an unrelated process must not keep poseidon down forever.
 LOCK="/tmp/naturali-poseidon.pid"
-if [[ -f "${LOCK}" ]] && kill -0 "$(cat "${LOCK}")" 2>/dev/null; then
-  echo "poseidon already running (PID $(cat "${LOCK}")), exiting duplicate."
-  exit 0
+if [[ -f "${LOCK}" ]]; then
+  pid="$(cat "${LOCK}")"
+  if kill -0 "$pid" 2>/dev/null && ps -p "$pid" -o command= 2>/dev/null | grep -q "start-poseidon\|python -m poseidon"; then
+    echo "poseidon already running (pid $pid), exiting duplicate."
+    exit 0
+  fi
 fi
 echo $$ > "${LOCK}"
 trap 'rm -f "${LOCK}"' EXIT
