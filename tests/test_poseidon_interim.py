@@ -24,6 +24,16 @@ def test_phrase_unknown_tool_generic():
     assert phrase_for_tools(["SomethingNew"]) == "Let me look into that."
 
 
+def test_phrase_empty_and_multiple_unknowns_generic():
+    assert phrase_for_tools([]) == "Let me look into that."
+    assert phrase_for_tools(["UnknownA", "UnknownB"]) == "Let me look into that."
+
+
+def test_phrase_mixed_known_and_unknown_drops_generic():
+    assert phrase_for_tools(["mcp__pilotbook__get_anchorage", "UnknownB"]) == \
+        "Let me check the pilot book."
+
+
 def test_policy_first_ack_only_once():
     p = InterimPolicy()
     assert p.note_tool_use(["mcp__signalk__read_sensor"]) == \

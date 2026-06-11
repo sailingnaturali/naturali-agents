@@ -7,7 +7,7 @@ from __future__ import annotations
 
 STILL_WORKING_AFTER_S = 20.0
 STILL_WORKING_PHRASE = "Still working on it."
-_GENERIC_TOPIC = "into that"
+_GENERIC = object()
 
 # Keyed by MCP server prefix ("mcp__<server>") or exact tool name.
 _TOPICS: dict[str, str] = {
@@ -23,22 +23,25 @@ _TOPICS: dict[str, str] = {
 }
 
 
-def _topic(tool_name: str) -> str:
+def _topic(tool_name: str) -> str | object:
     if tool_name.startswith("mcp__"):
         prefix = "__".join(tool_name.split("__")[:2])
-        return _TOPICS.get(prefix, _GENERIC_TOPIC)
-    return _TOPICS.get(tool_name, _GENERIC_TOPIC)
+        return _TOPICS.get(prefix, _GENERIC)
+    return _TOPICS.get(tool_name, _GENERIC)
 
 
 def phrase_for_tools(tool_names: list[str]) -> str:
-    topics: list[str] = []
+    if not tool_names:
+        return "Let me look into that."
+    topics: list = []
     for name in tool_names:
         t = _topic(name)
         if t not in topics:
             topics.append(t)
-    if topics == [_GENERIC_TOPIC]:
+    named = [t for t in topics if t is not _GENERIC]
+    if not named:
         return "Let me look into that."
-    return f"Let me check {' and '.join(topics)}."
+    return f"Let me check {' and '.join(named)}."
 
 
 class InterimPolicy:
