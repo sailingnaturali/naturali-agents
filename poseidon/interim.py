@@ -1,0 +1,65 @@
+"""poseidon/interim.py — deterministic interim-say policy (spec §4).
+
+Phrases are ready-to-speak (SOUL rule: tools/templates return speakable
+strings); max two interim says per turn, total, across both kinds.
+"""
+from __future__ import annotations
+
+STILL_WORKING_AFTER_S = 20.0
+STILL_WORKING_PHRASE = "Still working on it."
+_GENERIC_TOPIC = "into that"
+
+# Keyed by MCP server prefix ("mcp__<server>") or exact tool name.
+_TOPICS: dict[str, str] = {
+    "mcp__pilotbook": "the pilot book",
+    "mcp__weather": "the forecast",
+    "mcp__currents": "the currents",
+    "mcp__signalk": "the instruments",
+    "mcp__colregs": "the rules of the road",
+    "mcp__vessel-knowledge": "the equipment notes",
+    "mcp__logbook": "the logbook",
+    "mcp__outstations": "the outstations",
+    "Agent": "with the crew",
+}
+
+
+def _topic(tool_name: str) -> str:
+    if tool_name.startswith("mcp__"):
+        prefix = "__".join(tool_name.split("__")[:2])
+        return _TOPICS.get(prefix, _GENERIC_TOPIC)
+    return _TOPICS.get(tool_name, _GENERIC_TOPIC)
+
+
+def phrase_for_tools(tool_names: list[str]) -> str:
+    topics: list[str] = []
+    for name in tool_names:
+        t = _topic(name)
+        if t not in topics:
+            topics.append(t)
+    if topics == [_GENERIC_TOPIC]:
+        return "Let me look into that."
+    return f"Let me check {' and '.join(topics)}."
+
+
+class InterimPolicy:
+    """Per-turn budget: one tool acknowledgment + one still-working, max two."""
+
+    def __init__(self, max_says: int = 2) -> None:
+        self._max = max_says
+        self._said = 0
+        self._acked = False
+        self._stilled = False
+
+    def note_tool_use(self, tool_names: list[str]) -> str | None:
+        if self._acked or self._said >= self._max:
+            return None
+        self._acked = True
+        self._said += 1
+        return phrase_for_tools(tool_names)
+
+    def still_working(self) -> str | None:
+        if self._stilled or self._said >= self._max:
+            return None
+        self._stilled = True
+        self._said += 1
+        return STILL_WORKING_PHRASE
