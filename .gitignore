@@ -1,5 +1,6 @@
 __pycache__/
 *.py[cod]
+dev/acp_spike.stderr.log
 .venv/
 .env
 .DS_Store
