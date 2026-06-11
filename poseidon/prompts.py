@@ -7,8 +7,12 @@ first, duties second, nothing volatile (no timestamps) anywhere in here.
 """
 from __future__ import annotations
 
+import logging
 import os
+import re
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -16,17 +20,76 @@ _SEVERITY = {"nominal": 0, "normal": 1, "alert": 2, "warn": 3,
              "alarm": 4, "emergency": 5}
 
 
+def _resolve_vessel_name() -> str:
+    """Port of scripts/vessel-name.sh: $VESSEL_NAME override, else the active
+    vessel profile's name: (infrastructure/vessels/profiles, override with
+    $VESSEL_PROFILES_DIR), else "Naturali"."""
+    explicit = os.environ.get("VESSEL_NAME")
+    if explicit:
+        return explicit
+    profiles_dir = Path(os.environ.get(
+        "VESSEL_PROFILES_DIR",
+        str(REPO_ROOT.parent / "infrastructure" / "vessels" / "profiles")))
+    try:
+        active_text = (profiles_dir / "active.yaml").read_text(encoding="utf-8")
+        m = re.search(r"^active:\s*(\S+)", active_text, re.M)
+        active = m.group(1).strip("\"'") if m else ""
+        if active:
+            profile_text = (profiles_dir / f"{active}.yaml").read_text(
+                encoding="utf-8")
+            m = re.search(r"^name:\s*(.+)$", profile_text, re.M)
+            if m:
+                name = m.group(1).strip().strip("\"'")
+                if name:
+                    return name
+    except OSError:
+        pass
+    log.warning("vessel profile unavailable; using fallback vessel name "
+                "'Naturali'")
+    return "Naturali"
+
+
+VESSEL_NAME = _resolve_vessel_name()
+
+# hermes-era server tokens -> SDK MCP server names. Tokens can contain
+# underscores, so match an explicit alternation (longest first), never a
+# generic pattern. "tide" became the currents MCP.
+_HERMES_SERVERS = {
+    "vessel_knowledge": "vessel-knowledge",
+    "pilotbook": "pilotbook",
+    "signalk": "signalk",
+    "colregs": "colregs",
+    "logbook": "logbook",
+    "weather": "weather",
+    "tide": "currents",
+}
+_TOOL_PREFIX_RE = re.compile(
+    r"\bmcp_(" + "|".join(sorted(_HERMES_SERVERS, key=len, reverse=True)) + r")_")
+
+
+def _modernize_tool_names(text: str) -> str:
+    """Rewrite hermes-era tool names (mcp_<server>_<tool>) to the SDK's
+    mcp__<server>__<tool> form at assembly time. body.md files are shared
+    with hermes and keep the old names; only the assembled prompt changes.
+    Prefix-based so wildcard mentions like `mcp_signalk_*` convert too."""
+    return _TOOL_PREFIX_RE.sub(
+        lambda m: f"mcp__{_HERMES_SERVERS[m.group(1)]}__", text)
+
+
 def _read(rel: str) -> str:
-    return (REPO_ROOT / rel).read_text(encoding="utf-8").strip()
+    text = (REPO_ROOT / rel).read_text(encoding="utf-8").strip()
+    # deploy-soul.sh renders this for hermes; poseidon substitutes at load
+    return text.replace("{{VESSEL_NAME}}", VESSEL_NAME)
 
 
 def crew_system_prompt() -> str:
-    return _read("SOUL.md") + "\n\n# Navigator duties\n\n" + \
-        _read("skills/navigator/body.md")
+    return _modernize_tool_names(
+        _read("SOUL.md") + "\n\n# Navigator duties\n\n" +
+        _read("skills/navigator/body.md"))
 
 
 def engineer_prompt() -> str:
-    return _read("skills/engineer/body.md")
+    return _modernize_tool_names(_read("skills/engineer/body.md"))
 
 
 LOGBOOK_PROMPT = """You are the ship's Logbook keeper. You record sea-day

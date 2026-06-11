@@ -69,6 +69,17 @@ def test_ask_timeout_publishes_nothing_final():
     assert finals == []   # HA's 75s fallback is the backstop
 
 
+def test_ask_rc1_publishes_failure_say_with_trace():
+    # spec §6: hard failures publish a failure say so HA's wait resolves
+    # instead of dangling to the 75 s fallback
+    ch = FakeChannel(TurnResult("", 1, 2.0, None))
+    app, published = make_app(channel=ch)
+    asyncio.run(app.dispatch("naturali/intents/ask",
+                             {"text": "broken?", "trace_id": "t9"}))
+    assert {"text": "Sorry Captain, something went wrong answering that.",
+            "trace_id": "t9"} in published
+
+
 def test_empty_ask_ignored():
     app, published = make_app()
     asyncio.run(app.dispatch("naturali/intents/ask", {"text": "  "}))
@@ -94,6 +105,18 @@ def test_unknown_topic_logged_not_crashed():
 def test_payload_decode_fallback():
     assert daemon.decode_payload(b'{"text": "hi"}') == {"text": "hi"}
     assert daemon.decode_payload(b"plain words") == {"text": "plain words"}
+
+
+def test_payload_decode_wraps_non_dict_json():
+    assert daemon.decode_payload(b"42") == {"text": "42"}
+
+
+def test_strip_markdown_removes_speech_hostile_markers():
+    out = daemon._strip_markdown("**16.4 knots** and `raw`\n## Header\n- item")
+    assert out == "16.4 knots and raw\nHeader\nitem"
+    # collapse runs of blank lines; keep italic content
+    assert daemon._strip_markdown("a\n\n\n\nb") == "a\n\nb"
+    assert daemon._strip_markdown("*calm* seas") == "calm seas"
 
 
 def test_run_env_reload_applies_mqtt_creds(monkeypatch, tmp_path):

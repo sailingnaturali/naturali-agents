@@ -172,6 +172,43 @@ def test_timeout_disposes_client_so_next_turn_starts_fresh():
     assert len(clients) == 2 and r2.text == "fresh"
 
 
+def test_warm_creates_client_and_ask_reuses_it():
+    scripts = [[_assistant([TextBlock(text="hi")]), _result()]]
+    ch, clients = make_channel(scripts)
+
+    async def run():
+        await ch.warm()
+        await ch.warm()  # idempotent: second warm is a no-op
+        return await ch.ask("q", lambda s: None)
+
+    r = asyncio.run(run())
+    assert len(clients) == 1   # factory called once; ask reused the warm client
+    assert r.text == "hi"
+
+
+def test_timeout_schedules_background_rewarm():
+    pool = [[["HANG"]], [[]]]
+    clients = []
+
+    async def factory():
+        c = FakeClient(pool.pop(0))
+        clients.append(c)
+        return c
+
+    ch = CrewChannel(client_factory=factory, reset_policy=ResetPolicy(),
+                     timeout_s=0.05)
+
+    async def run():
+        r = await ch.ask("slow", lambda s: None)
+        for _ in range(10):           # let the scheduled warm task settle
+            await asyncio.sleep(0)
+        return r
+
+    r = asyncio.run(run())
+    assert r.rc == "timeout" and clients[0].disconnected
+    assert len(clients) == 2 and ch._client is clients[1]   # re-warmed fresh
+
+
 def test_consume_error_reports_rc1_and_disposes():
     class BrokenClient(FakeClient):
         async def receive_response(self):

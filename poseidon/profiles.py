@@ -20,6 +20,7 @@ SDK notes (verified against claude-agent-sdk 0.2.97 / CLI 2.1.173):
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from claude_agent_sdk import AgentDefinition, ClaudeAgentOptions
@@ -38,9 +39,21 @@ LOGBOOK_TOOLS = ["mcp__logbook", "mcp__signalk"]
 _MCP_SERVERS_JSON = Path(__file__).with_name("mcp_servers.json")
 
 
+def _expand_home(obj):
+    """Recursively expanduser ~-prefixed string values (commands, args, env)
+    so mcp_servers.json stays machine-portable."""
+    if isinstance(obj, dict):
+        return {k: _expand_home(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_expand_home(v) for v in obj]
+    if isinstance(obj, str) and obj.startswith("~"):
+        return os.path.expanduser(obj)
+    return obj
+
+
 def load_mcp_servers(path: Path | None = None) -> dict:
     path = path or _MCP_SERVERS_JSON
-    return json.loads(path.read_text(encoding="utf-8"))
+    return _expand_home(json.loads(path.read_text(encoding="utf-8")))
 
 
 def crew_options() -> ClaudeAgentOptions:

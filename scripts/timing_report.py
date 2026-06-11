@@ -21,7 +21,8 @@ import os
 import sys
 
 DEFAULT_PATH = os.path.expanduser("~/Library/Logs/naturali/voice-timing.jsonl")
-DT_FIELDS = ("dt_transport", "dt_hermes", "dt_publish", "dt_total", "dt_subprocess")
+DT_FIELDS = ("dt_transport", "dt_hermes", "dt_first_say", "dt_publish",
+             "dt_total", "dt_subprocess")
 
 
 def load_records(path: str) -> list[dict]:

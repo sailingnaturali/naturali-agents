@@ -1,16 +1,16 @@
 {
   "signalk": {
     "type": "stdio",
-    "command": "/Users/clarkbw/.local/bin/uv",
-    "args": ["run", "--project", "/Users/clarkbw/src/sailingnaturali/signalk-mcp", "signalk-mcp"],
+    "command": "~/.local/bin/uv",
+    "args": ["run", "--project", "~/src/sailingnaturali/signalk-mcp", "signalk-mcp"],
     "env": {
       "SIGNALK_URL": "http://naturalaspi.local:3000"
     }
   },
   "logbook": {
     "type": "stdio",
-    "command": "/Users/clarkbw/.local/bin/uv",
-    "args": ["run", "--project", "/Users/clarkbw/src/sailingnaturali/logbook-mcp", "logbook-mcp"],
+    "command": "~/.local/bin/uv",
+    "args": ["run", "--project", "~/src/sailingnaturali/logbook-mcp", "logbook-mcp"],
     "env": {
       "LOGBOOK_SK_URL": "http://naturalaspi.local:3000",
       "LOGBOOK_TZ": "America/Vancouver"
@@ -18,45 +18,45 @@
   },
   "currents": {
     "type": "stdio",
-    "command": "/Users/clarkbw/.local/bin/uv",
-    "args": ["run", "--project", "/Users/clarkbw/src/sailingnaturali/currents-mcp", "currents-mcp"],
+    "command": "~/.local/bin/uv",
+    "args": ["run", "--project", "~/src/sailingnaturali/currents-mcp", "currents-mcp"],
     "env": {
       "SIGNALK_URL": "http://naturalaspi.local:3000"
     }
   },
   "weather": {
     "type": "stdio",
-    "command": "/Users/clarkbw/.local/bin/uv",
-    "args": ["run", "--project", "/Users/clarkbw/src/sailingnaturali/weather-mcp", "weather-mcp"],
+    "command": "~/.local/bin/uv",
+    "args": ["run", "--project", "~/src/sailingnaturali/weather-mcp", "weather-mcp"],
     "env": {}
   },
   "pilotbook": {
     "type": "stdio",
-    "command": "/Users/clarkbw/.local/bin/uv",
-    "args": ["run", "--project", "/Users/clarkbw/src/sailingnaturali/pilotbook-mcp", "pilotbook-mcp"],
+    "command": "~/.local/bin/uv",
+    "args": ["run", "--project", "~/src/sailingnaturali/pilotbook-mcp", "pilotbook-mcp"],
     "env": {
-      "PILOTBOOK_VAULT_PATH": "/Users/clarkbw/src/sailingnaturali/pilotbook-vault"
+      "PILOTBOOK_VAULT_PATH": "~/src/sailingnaturali/pilotbook-vault"
     }
   },
   "colregs": {
     "type": "stdio",
-    "command": "/Users/clarkbw/.local/bin/uv",
-    "args": ["run", "--project", "/Users/clarkbw/src/sailingnaturali/colregs-mcp", "colregs-mcp"],
+    "command": "~/.local/bin/uv",
+    "args": ["run", "--project", "~/src/sailingnaturali/colregs-mcp", "colregs-mcp"],
     "env": {}
   },
   "vessel-knowledge": {
     "type": "stdio",
-    "command": "/Users/clarkbw/.local/bin/uv",
-    "args": ["run", "--project", "/Users/clarkbw/src/sailingnaturali/vessel-knowledge-mcp", "vessel-knowledge-mcp"],
+    "command": "~/.local/bin/uv",
+    "args": ["run", "--project", "~/src/sailingnaturali/vessel-knowledge-mcp", "vessel-knowledge-mcp"],
     "env": {
-      "VESSEL_KNOWLEDGE_VAULT_PATH": "/Users/clarkbw/src/sailingnaturali/vessel-knowledge-vault",
-      "VESSEL_KNOWLEDGE_BINDINGS_PATH": "/Users/clarkbw/src/sailingnaturali/infrastructure/mac-dev/signalk-config/bindings.json"
+      "VESSEL_KNOWLEDGE_VAULT_PATH": "~/src/sailingnaturali/vessel-knowledge-vault",
+      "VESSEL_KNOWLEDGE_BINDINGS_PATH": "~/src/sailingnaturali/infrastructure/mac-dev/signalk-config/bindings.json"
     }
   },
   "outstations": {
     "type": "stdio",
-    "command": "/Users/clarkbw/.local/bin/uv",
-    "args": ["run", "--project", "/Users/clarkbw/src/sailingnaturali/outstations-mcp", "outstations-mcp"],
+    "command": "~/.local/bin/uv",
+    "args": ["run", "--project", "~/src/sailingnaturali/outstations-mcp", "outstations-mcp"],
     "env": {}
   }
 }

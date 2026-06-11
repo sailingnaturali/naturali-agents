@@ -39,6 +39,25 @@ class CrewChannel:
         self._client = None
         self._last_turn_at: datetime | None = None
         self._lock = asyncio.Lock()
+        self._rewarm_task: asyncio.Task | None = None
+
+    async def warm(self) -> None:
+        """Eagerly create the SDK client (spec §2: connect once at startup)
+        so the first ask doesn't pay connect latency."""
+        async with self._lock:
+            if self._client is None:
+                self._client = await self._factory()
+                log.info("crew channel warmed")
+
+    def _schedule_rewarm(self) -> None:
+        """After a timeout/hard-error dispose, re-warm in the background.
+        warm() takes the lock, so the task only runs once ask() releases it.
+        Keep the task reference so it isn't garbage-collected mid-flight."""
+        task = asyncio.get_running_loop().create_task(self.warm())
+        task.add_done_callback(
+            lambda t: (not t.cancelled() and t.exception()) and
+            log.error("crew re-warm failed: %r", t.exception()))
+        self._rewarm_task = task
 
     async def ask(self, text: str,
                   on_interim: Callable[[str], None]) -> TurnResult:
@@ -104,11 +123,13 @@ class CrewChannel:
                 # A timed-out conversation has little continuity value:
                 # drop the client, next ask starts fresh.
                 await self._dispose()
+                self._schedule_rewarm()
             except Exception:
                 log.exception("turn failed; disposing client")
                 rc = 1
                 texts.clear()
                 await self._dispose()
+                self._schedule_rewarm()
             finally:
                 dog.cancel()
                 with contextlib.suppress(asyncio.CancelledError):

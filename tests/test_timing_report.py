@@ -33,6 +33,10 @@ def test_summarize_groups_by_kind_and_field():
     assert s["ask"]["dt_transport"]["n"] == 2
 
 
+def test_dt_fields_cover_first_say():
+    assert "dt_first_say" in tr.DT_FIELDS
+
+
 def test_negative_transport_flagged():
     assert tr.count_negative_transport(_recs()) == 1
 

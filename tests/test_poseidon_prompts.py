@@ -18,6 +18,64 @@ def test_engineer_prompt_contains_duties():
     assert "Engineer" in prompts.engineer_prompt()
 
 
+def test_prompts_have_no_unsubstituted_placeholders():
+    # {{VESSEL_NAME}} must be substituted at assembly time (deploy-soul.sh
+    # only renders the hermes copy; poseidon reads the repo sources raw).
+    assert "{{" not in prompts.crew_system_prompt()
+    assert "{{" not in prompts.engineer_prompt()
+
+
+def test_resolve_vessel_name_env_override(monkeypatch):
+    monkeypatch.setenv("VESSEL_NAME", "Test Boat")
+    assert prompts._resolve_vessel_name() == "Test Boat"
+
+
+def test_resolve_vessel_name_from_active_profile(tmp_path, monkeypatch):
+    monkeypatch.delenv("VESSEL_NAME", raising=False)
+    (tmp_path / "active.yaml").write_text("active: wind-chaser\n")
+    (tmp_path / "wind-chaser.yaml").write_text('name: "Wind Chaser"\n')
+    monkeypatch.setenv("VESSEL_PROFILES_DIR", str(tmp_path))
+    assert prompts._resolve_vessel_name() == "Wind Chaser"
+
+
+def test_resolve_vessel_name_falls_back_when_profiles_missing(tmp_path, monkeypatch):
+    monkeypatch.delenv("VESSEL_NAME", raising=False)
+    monkeypatch.setenv("VESSEL_PROFILES_DIR", str(tmp_path / "nope"))
+    assert prompts._resolve_vessel_name() == "Naturali"
+
+
+def test_modernize_tool_names_maps_hermes_servers():
+    src = ("call `mcp_signalk_read_sensor(path)` then "
+           "`mcp_vessel_knowledge_explain_notification(path, state)`; "
+           "gates via `mcp_tide_get_passage_gates`; the `mcp_signalk_*` tools; "
+           "log with `mcp_logbook_mark_moment(text)`")
+    out = prompts._modernize_tool_names(src)
+    assert "mcp__signalk__read_sensor" in out
+    assert "mcp__vessel-knowledge__explain_notification" in out
+    assert "mcp__currents__get_passage_gates" in out
+    assert "mcp__signalk__*" in out          # wildcard prefix form too
+    assert "mcp__logbook__mark_moment" in out
+    assert "mcp_signalk_" not in out and "mcp_vessel_knowledge_" not in out
+    assert "mcp_tide_" not in out
+
+
+def test_engineer_prompt_tool_names_modernized():
+    text = prompts.engineer_prompt()
+    assert "mcp__vessel-knowledge__explain_notification" in text
+    assert "mcp__signalk__read_sensor" in text
+    assert "mcp_vessel_knowledge_" not in text
+    assert "mcp_signalk_" not in text
+
+
+def test_crew_prompt_tool_names_modernized():
+    text = prompts.crew_system_prompt()
+    assert "mcp__currents__get_passage_gates" in text
+    assert "mcp__weather__get_marine_forecast" in text
+    for stale in ("mcp_tide_", "mcp_signalk_", "mcp_weather_",
+                  "mcp_pilotbook_", "mcp_logbook_"):
+        assert stale not in text, stale
+
+
 def test_alarm_user_prompt_quotes_message_and_forbids_detail():
     env = {"state": "alarm", "path": "electrical.batteries.0.voltage",
            "message": "Battery voltage critically low"}
@@ -57,3 +115,21 @@ def test_crew_options_constructs_with_two_subagents():
     assert expected_servers == set(opts.mcp_servers.keys())
     # hard Navigator scoping: vessel-knowledge and logbook blocked from main context
     assert "mcp__vessel-knowledge" in opts.disallowed_tools
+
+
+def test_load_mcp_servers_expands_home_paths():
+    cfg = profiles.load_mcp_servers()
+
+    def walk(obj):
+        if isinstance(obj, dict):
+            for v in obj.values():
+                walk(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                walk(v)
+        elif isinstance(obj, str):
+            assert not obj.startswith("~"), obj
+
+    walk(cfg)
+    # paths come back absolute for this user, not literal-tilde
+    assert cfg["signalk"]["command"].startswith("/")

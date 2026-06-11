@@ -1,9 +1,11 @@
 """poseidon/daemon.py — MQTT lanes -> crew channel / alarm lane / briefing.
 
-MQTT discipline ported from the bridge: stable client id + clean_session=False
-so QoS-1 intents queue at the broker while we're down (verified by the
-2026-06-10 bridge-down drill). paho callbacks run on its network thread; work
-is handed to the asyncio loop via run_coroutine_threadsafe.
+MQTT discipline ported from the bridge: stable client id + clean_session=False.
+QoS-1 + persistent session replays asks that arrive while the daemon is DOWN;
+an ask already mid-processing when the daemon dies is PUBACK'd and lost (paho
+acks on callback return). Adopting manual_ack is the recorded follow-up.
+paho callbacks run on its network thread; work is handed to the asyncio loop
+via run_coroutine_threadsafe.
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ import importlib
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -33,16 +36,35 @@ CAFFEINATE = shutil.which("caffeinate") or "/usr/bin/caffeinate"
 
 def decode_payload(raw: bytes) -> dict:
     try:
-        return json.loads(raw.decode())
+        obj = json.loads(raw.decode())
     except (json.JSONDecodeError, UnicodeDecodeError):
         return {"text": raw.decode(errors="replace")}
+    return obj if isinstance(obj, dict) else {"text": str(obj)}
+
+
+_MD_BOLD = re.compile(r"\*\*([^*]+)\*\*")
+_MD_ITALIC = re.compile(r"(?<!\*)\*([^*\n]+)\*(?!\*)")
+_MD_CODE = re.compile(r"`([^`\n]*)`")
+_MD_HEADING = re.compile(r"^#{1,6}\s+", re.MULTILINE)
+_MD_BULLET = re.compile(r"^- ", re.MULTILINE)
+_MD_BLANKS = re.compile(r"\n{3,}")
+
+
+def _strip_markdown(text: str) -> str:
+    """Says are spoken by TTS — drop markdown markers, keep the content."""
+    text = _MD_BOLD.sub(r"\1", text)
+    text = _MD_ITALIC.sub(r"\1", text)
+    text = _MD_CODE.sub(r"\1", text)
+    text = _MD_HEADING.sub("", text)
+    text = _MD_BULLET.sub("", text)
+    return _MD_BLANKS.sub("\n\n", text)
 
 
 def publish_say(text: str, trace_id: str | None = None) -> None:
     """Blocking publish (call via to_thread from the loop)."""
     auth = ({"username": config.MQTT_USER, "password": config.MQTT_PASSWORD}
             if config.MQTT_USER else None)
-    say: dict = {"agent": config.AGENT_NAME, "text": text}
+    say: dict = {"agent": config.AGENT_NAME, "text": _strip_markdown(text)}
     if trace_id:
         say["trace_id"] = trace_id
     mqtt_publish.single(config.SAY_TOPIC, payload=json.dumps(say),
@@ -118,10 +140,19 @@ class Poseidon:
         if interim_tasks:
             await asyncio.gather(*interim_tasks, return_exceptions=True)
         dt_publish = None
+        final_text = None
         if result.rc == 0 and result.text:
             log.info("answer: %s", result.text)
+            final_text = result.text
+        elif result.rc == 1:
+            # spec §6: hard failures publish a failure say so HA's waiting
+            # intent resolves instead of dangling to the 75 s fallback.
+            # Timeouts stay silent: HA's own fallback phrase covers those.
+            log.warning("ask failed (rc=1); publishing failure say")
+            final_text = "Sorry Captain, something went wrong answering that."
+        if final_text is not None:
             t_pub = time.monotonic()
-            await asyncio.to_thread(self._publish, result.text, trace_id)
+            await asyncio.to_thread(self._publish, final_text, trace_id)
             dt_publish = time.monotonic() - t_pub
         timing.append_timing_record(timing.build_record(
             ctx["kind"], ctx["trace_id"], ctx["ts"],
@@ -155,17 +186,24 @@ async def run() -> None:
     importlib.reload(config)   # constants freeze at import; re-read with env applied
     if not os.environ.get("LOGBOOK_SK_TOKEN"):
         log.warning("LOGBOOK_SK_TOKEN not in environment - logbook MCP writes will fail")
+    channel = CrewChannel(client_factory=sdk_client_factory,
+                          reset_policy=ResetPolicy(
+                              idle_seconds=config.IDLE_RESET_S,
+                              rollover_hour=config.ROLLOVER_HOUR),
+                          timeout_s=config.ASK_TIMEOUT_S)
     app = Poseidon(
-        channel=CrewChannel(client_factory=sdk_client_factory,
-                            reset_policy=ResetPolicy(
-                                idle_seconds=config.IDLE_RESET_S,
-                                rollover_hour=config.ROLLOVER_HOUR),
-                            timeout_s=config.ASK_TIMEOUT_S),
+        channel=channel,
         alarm_lane=AlarmLane(),
         publish_say=publish_say,
         run_briefing=run_briefing,
     )
     loop = asyncio.get_running_loop()
+    # eager warm-up (spec §2 "connect once at startup"): the first ask should
+    # not pay SDK connect latency. Keep the reference so the task survives.
+    warm_task = loop.create_task(channel.warm())
+    warm_task.add_done_callback(
+        lambda f: (not f.cancelled() and f.exception()) and
+        log.error("crew warm-up failed: %r", f.exception()))
     ask_queue: asyncio.Queue[tuple[str, dict]] = asyncio.Queue()
 
     def on_connect(client, userdata, flags, rc, properties=None):
