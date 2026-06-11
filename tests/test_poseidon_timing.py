@@ -20,6 +20,7 @@ def test_build_record_core_fields():
 
 def test_t_ha_rejects_bool_and_garbage():
     assert timing._parse_t_ha({"t_ha": True}) is None
+    assert timing._parse_t_ha({"t_ha": False}) is None
     assert timing._parse_t_ha({"t_ha": "soon"}) is None
     assert timing._parse_t_ha({"t_ha": 12.5}) == 12.5
     assert timing._parse_t_ha({}) is None
@@ -38,3 +39,19 @@ def test_timing_ctx_shape():
     ctx = timing.timing_ctx("alert", {"t_ha": 5.0})
     assert ctx["kind"] == "alert" and len(ctx["trace_id"]) == 6
     assert ctx["t_ha"] == 5.0 and "t_mono" in ctx and "t_wall" in ctx
+
+
+def test_dt_transport_none_without_t_ha_and_negative_skew_preserved():
+    rec = timing.build_record("ask", "x", "ts", t_ha=None, t_receive_wall=5.0)
+    assert rec["dt_transport"] is None
+    rec = timing.build_record("ask", "x", "ts", t_ha=10.0, t_receive_wall=9.948)
+    assert rec["dt_transport"] == -0.052  # skew recorded, never clamped
+
+
+def test_append_nan_warns_and_writes_nothing(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(timing, "TIMING_PATH", str(tmp_path / "t.jsonl"))
+    with caplog.at_level("WARNING"):
+        timing.append_timing_record({"bad": float("nan")})
+    assert "timing record write failed" in caplog.text
+    assert not (tmp_path / "t.jsonl").exists() or \
+        (tmp_path / "t.jsonl").read_text() == ""
