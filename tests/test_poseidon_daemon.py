@@ -38,8 +38,9 @@ class FakeAlarmLane:
 def make_app(channel=None, alarms=None):
     published = []
 
-    def fake_publish(text, trace_id=None):
-        published.append({"text": text, "trace_id": trace_id})
+    def fake_publish(text, trace_id=None, interim=False):
+        published.append({"text": text, "trace_id": trace_id,
+                          "interim": interim})
 
     app = daemon.Poseidon(
         channel=channel or FakeChannel(TurnResult("ok", 0, 1.0, None)),
@@ -55,10 +56,13 @@ def test_ask_publishes_interim_without_trace_and_final_with():
     app, published = make_app(channel=ch)
     asyncio.run(app.dispatch("naturali/intents/ask",
                              {"text": "wind?", "trace_id": "t1", "t_ha": 1.0}))
-    # interim publishing is fire-and-forget; assert content, not ordering
+    # interim publishing is fire-and-forget; assert content, not ordering.
+    # interim=True: HA's broadcast automation must skip these (a puck announce
+    # mid-voice-session kills the session — found live 2026-06-11).
     assert {"text": "Let me check the instruments.",
-            "trace_id": None} in published
-    assert {"text": "Wind is 12 knots.", "trace_id": "t1"} in published
+            "trace_id": None, "interim": True} in published
+    assert {"text": "Wind is 12 knots.", "trace_id": "t1",
+            "interim": False} in published
 
 
 def test_ask_timeout_publishes_nothing_final():
@@ -77,7 +81,7 @@ def test_ask_rc1_publishes_failure_say_with_trace():
     asyncio.run(app.dispatch("naturali/intents/ask",
                              {"text": "broken?", "trace_id": "t9"}))
     assert {"text": "Sorry Captain, something went wrong answering that.",
-            "trace_id": "t9"} in published
+            "trace_id": "t9", "interim": False} in published
 
 
 def test_empty_ask_ignored():
@@ -93,7 +97,8 @@ def test_alert_routes_to_alarm_lane_and_speaks_unsolicited():
                              {"state": "alarm", "path": "p", "message": "m",
                               "timestamp": "T"}))
     assert lane.envs and published == [
-        {"text": "Battery alarm. Check the charger.", "trace_id": None}]
+        {"text": "Battery alarm. Check the charger.", "trace_id": None,
+         "interim": False}]
 
 
 def test_unknown_topic_logged_not_crashed():

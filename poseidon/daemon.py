@@ -60,13 +60,24 @@ def _strip_markdown(text: str) -> str:
     return _MD_BLANKS.sub("\n\n", text)
 
 
-def publish_say(text: str, trace_id: str | None = None) -> None:
-    """Blocking publish (call via to_thread from the loop)."""
+def publish_say(text: str, trace_id: str | None = None,
+                interim: bool = False) -> None:
+    """Blocking publish (call via to_thread from the loop).
+
+    interim=True marks mid-turn acknowledgments: HA's broadcast automation
+    must NOT announce them — an assist_satellite.announce during the puck's
+    active voice session kills the session, so the pipeline's final answer
+    is never spoken (found live 2026-06-11). Interim-on-puck is parked until
+    a satellite-safe mechanism exists; the flag keeps the payload contract
+    ready for it.
+    """
     auth = ({"username": config.MQTT_USER, "password": config.MQTT_PASSWORD}
             if config.MQTT_USER else None)
     say: dict = {"agent": config.AGENT_NAME, "text": _strip_markdown(text)}
     if trace_id:
         say["trace_id"] = trace_id
+    if interim:
+        say["interim"] = True
     mqtt_publish.single(config.SAY_TOPIC, payload=json.dumps(say),
                         hostname=config.BROKER, port=config.PORT, auth=auth)
 
@@ -134,7 +145,8 @@ class Poseidon:
             # the waiting intent script (spec §4). Fire-and-forget, but keep
             # the task reference so it isn't garbage-collected mid-flight.
             interim_tasks.append(
-                loop.create_task(asyncio.to_thread(self._publish, phrase)))
+                loop.create_task(asyncio.to_thread(
+                    self._publish, phrase, None, True)))  # interim=True
 
         result = await self._channel.ask(text, on_interim)
         if interim_tasks:
