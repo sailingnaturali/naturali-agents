@@ -8,6 +8,7 @@ is handed to the asyncio loop via run_coroutine_threadsafe.
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import logging
 import os
@@ -19,7 +20,7 @@ from typing import Callable
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as mqtt_publish
 
-from poseidon import config, timing
+from poseidon import config, prompts, timing
 from poseidon.alarms import AlarmLane
 from poseidon.engine import CrewChannel, sdk_client_factory
 from poseidon.reset import ResetPolicy
@@ -50,6 +51,7 @@ def publish_say(text: str, trace_id: str | None = None) -> None:
 
 def run_briefing(timing_ctx: dict | None = None) -> None:
     """Ported from the bridge: briefing.py handles its own outputs."""
+    log.info("triggering daily briefing generation")
     scripts_dir = os.path.join(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))), "scripts")
     t0 = time.monotonic()
@@ -62,6 +64,8 @@ def run_briefing(timing_ctx: dict | None = None) -> None:
         rc = result.returncode
         if rc != 0:
             log.error("briefing.py failed (rc=%d): %s", rc, result.stderr.strip())
+        else:
+            log.info("briefing complete")
     except subprocess.TimeoutExpired:
         log.error("briefing.py timed out after 300s")
         rc = "timeout"
@@ -135,19 +139,20 @@ class Poseidon:
         narration = await self._alarms.handle(payload)
         if narration:
             await asyncio.to_thread(self._publish, narration)
-        timing.append_timing_record(timing.build_record(
-            ctx["kind"], ctx["trace_id"], ctx["ts"],
-            t_ha=ctx["t_ha"], t_receive_wall=ctx["t_wall"],
-            dt_hermes=time.monotonic() - t0,
-            dt_total=time.monotonic() - ctx["t_mono"],
-            query_chars=0,
-            response_chars=len(narration or ""),
-            rc=0 if narration else 1,
-            model=None))
+            timing.append_timing_record(timing.build_record(
+                ctx["kind"], ctx["trace_id"], ctx["ts"],
+                t_ha=ctx["t_ha"], t_receive_wall=ctx["t_wall"],
+                dt_hermes=time.monotonic() - t0,
+                dt_total=time.monotonic() - ctx["t_mono"],
+                query_chars=0,
+                response_chars=len(narration),
+                rc=0,
+                model=prompts.model_for_state(payload.get("state")) or config.MODEL))
 
 
 async def run() -> None:
     config.load_env_file(config.ENV_FILE)
+    importlib.reload(config)   # constants freeze at import; re-read with env applied
     if not os.environ.get("LOGBOOK_SK_TOKEN"):
         log.warning("LOGBOOK_SK_TOKEN not in environment - logbook MCP writes will fail")
     app = Poseidon(
@@ -169,7 +174,7 @@ async def run() -> None:
             client.subscribe(config.INTENTS_TOPIC, qos=1)
             client.subscribe(config.ALERTS_TOPIC, qos=1)
         else:
-            log.error("connection failed rc=%d", rc)
+            log.error("connection failed rc=%s", rc)
 
     def on_message(client, userdata, msg):
         payload = decode_payload(msg.payload)
@@ -179,8 +184,11 @@ async def run() -> None:
             loop.call_soon_threadsafe(ask_queue.put_nowait, (msg.topic, payload))
         else:
             # alarms + briefing run concurrently with any in-flight ask
-            asyncio.run_coroutine_threadsafe(
+            fut = asyncio.run_coroutine_threadsafe(
                 app.dispatch(msg.topic, payload), loop)
+            fut.add_done_callback(
+                lambda f: f.exception() and
+                log.error("lane dispatch failed: %r", f.exception()))
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
                          client_id=config.CLIENT_ID, clean_session=False)
@@ -195,4 +203,7 @@ async def run() -> None:
     log.info("poseidon up (model=%s)", config.MODEL)
     while True:
         topic, payload = await ask_queue.get()
-        await app.dispatch(topic, payload)
+        try:
+            await app.dispatch(topic, payload)
+        except Exception:
+            log.exception("ask dispatch failed; daemon continues")

@@ -6,6 +6,9 @@ arrangement until hermes is decommissioned). load_env_file never overrides
 variables already present in the environment (launchd plist wins).
 Note: constants (including SAY_TOPIC) freeze at import time — call load_env_file
 before importing modules that read them, or restart the daemon after env changes.
+daemon.run() calls load_env_file then immediately reloads this module via
+importlib.reload so that MQTT credentials and other env-driven constants reflect
+the values from the env file.
 """
 from __future__ import annotations
 

@@ -1,9 +1,17 @@
 """Daemon routing: ask/alert/briefing lanes and say payload contract."""
 import asyncio
+import importlib
 import json
 
-from poseidon import daemon
+import pytest
+
+from poseidon import daemon, timing as timing_mod
 from poseidon.engine import TurnResult
+
+
+@pytest.fixture(autouse=True)
+def _isolated_timing(tmp_path, monkeypatch):
+    monkeypatch.setattr(timing_mod, "TIMING_PATH", str(tmp_path / "t.jsonl"))
 
 
 class FakeChannel:
@@ -86,3 +94,20 @@ def test_unknown_topic_logged_not_crashed():
 def test_payload_decode_fallback():
     assert daemon.decode_payload(b'{"text": "hi"}') == {"text": "hi"}
     assert daemon.decode_payload(b"plain words") == {"text": "plain words"}
+
+
+def test_run_env_reload_applies_mqtt_creds(monkeypatch, tmp_path):
+    """config constants must re-freeze after the env file loads."""
+    from poseidon import config
+    envfile = tmp_path / ".env"
+    envfile.write_text("MQTT_USER=naturali\nMQTT_PASSWORD=pw\n")
+    monkeypatch.delenv("MQTT_USER", raising=False)
+    monkeypatch.delenv("MQTT_PASSWORD", raising=False)
+    config.load_env_file(str(envfile))
+    cfg = importlib.reload(config)
+    assert cfg.MQTT_USER == "naturali" and cfg.MQTT_PASSWORD == "pw"
+    # cleanup: reload once more after monkeypatch-managed env teardown happens
+    # is not possible here; explicitly delete and reload to restore defaults
+    monkeypatch.delenv("MQTT_USER", raising=False)
+    monkeypatch.delenv("MQTT_PASSWORD", raising=False)
+    importlib.reload(config)
