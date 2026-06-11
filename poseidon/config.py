@@ -4,6 +4,8 @@ POSEIDON_ENV points at a KEY=VALUE file loaded at startup (default:
 ~/.hermes/.env, which already holds ANTHROPIC_API_KEY + MQTT creds — interim
 arrangement until hermes is decommissioned). load_env_file never overrides
 variables already present in the environment (launchd plist wins).
+Note: constants (including SAY_TOPIC) freeze at import time — call load_env_file
+before importing modules that read them, or restart the daemon after env changes.
 """
 from __future__ import annotations
 
@@ -33,13 +35,14 @@ def load_env_file(path: str) -> None:
     """Load KEY=VALUE lines into os.environ without overriding existing vars."""
     try:
         with open(path, encoding="utf-8") as f:
-            lines = f.readlines()
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                value = value.strip()
+                if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                    value = value[1:-1]
+                os.environ.setdefault(key.strip(), value)
     except OSError:
         log.info("env file %s not found; relying on process environment", path)
-        return
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip('"'))
