@@ -1,0 +1,88 @@
+"""Daemon routing: ask/alert/briefing lanes and say payload contract."""
+import asyncio
+import json
+
+from poseidon import daemon
+from poseidon.engine import TurnResult
+
+
+class FakeChannel:
+    def __init__(self, result):
+        self.result = result
+        self.asks = []
+
+    async def ask(self, text, on_interim):
+        self.asks.append(text)
+        on_interim("Let me check the instruments.")
+        return self.result
+
+
+class FakeAlarmLane:
+    def __init__(self, narration="Battery alarm."):
+        self.narration = narration
+        self.envs = []
+
+    async def handle(self, env):
+        self.envs.append(env)
+        return self.narration
+
+
+def make_app(channel=None, alarms=None):
+    published = []
+
+    def fake_publish(text, trace_id=None):
+        published.append({"text": text, "trace_id": trace_id})
+
+    app = daemon.Poseidon(
+        channel=channel or FakeChannel(TurnResult("ok", 0, 1.0, None)),
+        alarm_lane=alarms or FakeAlarmLane(),
+        publish_say=fake_publish,
+        run_briefing=lambda timing: None,
+    )
+    return app, published
+
+
+def test_ask_publishes_interim_without_trace_and_final_with():
+    ch = FakeChannel(TurnResult("Wind is 12 knots.", 0, 1.2, 0.4))
+    app, published = make_app(channel=ch)
+    asyncio.run(app.dispatch("naturali/intents/ask",
+                             {"text": "wind?", "trace_id": "t1", "t_ha": 1.0}))
+    # interim publishing is fire-and-forget; assert content, not ordering
+    assert {"text": "Let me check the instruments.",
+            "trace_id": None} in published
+    assert {"text": "Wind is 12 knots.", "trace_id": "t1"} in published
+
+
+def test_ask_timeout_publishes_nothing_final():
+    ch = FakeChannel(TurnResult("", "timeout", 60.0, None))
+    app, published = make_app(channel=ch)
+    asyncio.run(app.dispatch("naturali/intents/ask", {"text": "slow?"}))
+    finals = [p for p in published if p["text"] != "Let me check the instruments."]
+    assert finals == []   # HA's 75s fallback is the backstop
+
+
+def test_empty_ask_ignored():
+    app, published = make_app()
+    asyncio.run(app.dispatch("naturali/intents/ask", {"text": "  "}))
+    assert published == []
+
+
+def test_alert_routes_to_alarm_lane_and_speaks_unsolicited():
+    lane = FakeAlarmLane("Battery alarm. Check the charger.")
+    app, published = make_app(alarms=lane)
+    asyncio.run(app.dispatch("naturali/alerts/electrical",
+                             {"state": "alarm", "path": "p", "message": "m",
+                              "timestamp": "T"}))
+    assert lane.envs and published == [
+        {"text": "Battery alarm. Check the charger.", "trace_id": None}]
+
+
+def test_unknown_topic_logged_not_crashed():
+    app, published = make_app()
+    asyncio.run(app.dispatch("naturali/other", {}))
+    assert published == []
+
+
+def test_payload_decode_fallback():
+    assert daemon.decode_payload(b'{"text": "hi"}') == {"text": "hi"}
+    assert daemon.decode_payload(b"plain words") == {"text": "plain words"}
