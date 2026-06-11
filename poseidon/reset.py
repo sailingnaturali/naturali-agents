@@ -13,11 +13,20 @@ class ResetPolicy:
 
     def should_reset(self, last_turn_at: datetime | None,
                      now: datetime, text: str) -> bool:
+        """True when the crew conversation should start fresh.
+
+        Phrase match fires even on the first turn; idle uses strict >
+        (exactly idle_seconds keeps the thread); a turn exactly at the
+        rollover instant counts as after it (last < rollover).
+        Datetimes must be tz-aware (the daemon is aware throughout).
+        """
         lowered = text.lower()
         if any(p in lowered for p in self.phrases):
             return True
         if last_turn_at is None:
             return False
+        if last_turn_at.tzinfo is None or now.tzinfo is None:
+            raise ValueError("should_reset requires tz-aware datetimes")
         if (now - last_turn_at).total_seconds() > self.idle_seconds:
             return True
         rollover = now.replace(hour=self.rollover_hour, minute=0,
