@@ -42,6 +42,8 @@ class CrewChannel:
 
     async def ask(self, text: str,
                   on_interim: Callable[[str], None]) -> TurnResult:
+        """Run one crew turn. on_interim must not block (schedule, don't publish inline) \
+— it is called synchronously from the consume loop."""
         async with self._lock:
             now = datetime.now().astimezone()
             if self._client is not None and \
@@ -96,6 +98,17 @@ class CrewChannel:
                 texts.clear()
                 with contextlib.suppress(Exception):
                     await self._client.interrupt()
+                # The SDK's message stream is shared across turns; an
+                # abandoned drain leaves stale messages queued (incl. the
+                # interrupted turn's ResultMessage), desyncing later turns.
+                # A timed-out conversation has little continuity value:
+                # drop the client, next ask starts fresh.
+                await self._dispose()
+            except Exception:
+                log.exception("turn failed; disposing client")
+                rc = 1
+                texts.clear()
+                await self._dispose()
             finally:
                 dog.cancel()
                 with contextlib.suppress(asyncio.CancelledError):

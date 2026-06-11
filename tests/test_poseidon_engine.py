@@ -145,3 +145,48 @@ def test_turns_are_serialized():
 
     asyncio.run(run())
     assert order == ["start", "end", "start", "end"]
+
+
+def test_timeout_disposes_client_so_next_turn_starts_fresh():
+    scripts2 = [[_assistant([TextBlock(text="fresh")]), _result()]]
+    pool = [[["HANG"]], scripts2]
+    clients = []
+
+    async def factory():
+        c = FakeClient(pool.pop(0))
+        clients.append(c)
+        return c
+
+    ch = CrewChannel(client_factory=factory, reset_policy=ResetPolicy(),
+                     timeout_s=0.05)
+
+    async def run():
+        r1 = await ch.ask("slow", lambda s: None)
+        ch._timeout_s = 60.0  # only the first ask should time out
+        r2 = await ch.ask("quick", lambda s: None)
+        return r1, r2
+
+    r1, r2 = asyncio.run(run())
+    assert r1.rc == "timeout"
+    assert clients[0].interrupted and clients[0].disconnected
+    assert len(clients) == 2 and r2.text == "fresh"
+
+
+def test_consume_error_reports_rc1_and_disposes():
+    class BrokenClient(FakeClient):
+        async def receive_response(self):
+            raise RuntimeError("CLI died")
+            yield  # pragma: no cover
+
+    clients = []
+
+    async def factory():
+        c = BrokenClient([[]])
+        clients.append(c)
+        return c
+
+    ch = CrewChannel(client_factory=factory, reset_policy=ResetPolicy(),
+                     timeout_s=1.0)
+    r = asyncio.run(ch.ask("hi", lambda s: None))
+    assert r.rc == 1 and r.text == ""
+    assert clients[0].disconnected
