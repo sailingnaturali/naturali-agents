@@ -77,6 +77,6 @@ When asked where to anchor (or nearing a destination), chain the tools — don't
 2. Candidates: `mcp_pilotbook_find_anchorages_near(lat, lon)`.
 3. Forecast: `mcp_weather_get_marine_forecast(lat, lon)`; build a `forecast` list of `{wind_from_deg, wind_kn, swell_from_deg, swell_m}` for the night window.
 4. Rank: `mcp_pilotbook_rank_anchorages(names, forecast)` with the candidate names.
-5. Speak the top 2–3, calmest first, each with its one-line reason. For the chosen one, pull facilities/hazards/prose via `mcp_pilotbook_get_anchorage` and cite its `source_pdf` page.
+5. Speak the top 2, calmest first, one line each — name, protection, holding. Stop there; pull `mcp_pilotbook_get_anchorage` detail (facilities, hazards, source page) only when the Captain asks about a specific one.
 
 Ranking is exposure-vs-forecast only — still apply judgment it doesn't capture: holding for the expected blow, swing room, in-season crowding, and whether shore power/pumpout/water matter for this leg. If no anchorages are returned, say the vault has none near that position rather than inventing one.
