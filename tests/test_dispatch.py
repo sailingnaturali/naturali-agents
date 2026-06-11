@@ -69,13 +69,12 @@ import types
 
 
 def _fake_hermes_ok(*args, **kwargs):
-    return types.SimpleNamespace(
-        returncode=0, stdout="Wind is 12 knots northwest.", stderr="")
+    return "Wind is 12 knots northwest.", 0
 
 
 def test_ask_reply_echoes_trace_id(monkeypatch):
     published = []
-    monkeypatch.setattr(b.subprocess, "run", _fake_hermes_ok)
+    monkeypatch.setattr(b, "_invoke_hermes", _fake_hermes_ok)
     monkeypatch.setattr(
         b.publish, "single",
         lambda topic, payload=None, **kw: published.append((topic, json.loads(payload))))
@@ -91,7 +90,7 @@ def test_say_omits_trace_id_when_absent(monkeypatch):
     # Alarm/briefing-style says must NOT carry trace_id — its absence is the
     # discriminator the HA announce automation keys on.
     published = []
-    monkeypatch.setattr(b.subprocess, "run", _fake_hermes_ok)
+    monkeypatch.setattr(b, "_invoke_hermes", _fake_hermes_ok)
     monkeypatch.setattr(
         b.publish, "single",
         lambda topic, payload=None, **kw: published.append(json.loads(payload)))

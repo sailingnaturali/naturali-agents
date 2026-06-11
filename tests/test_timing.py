@@ -80,11 +80,19 @@ class FakeCompleted:
 
 
 def _instrument(monkeypatch, tmp_path, run=None):
-    """Patch timing path, subprocess.run, and MQTT publish; return (path, published)."""
+    """Patch timing path, _invoke_hermes, and MQTT publish; return (path, published)."""
     path = tmp_path / "voice-timing.jsonl"
     monkeypatch.setattr(b, "TIMING_PATH", str(path))
+    runner = run or (lambda cmd, **kw: FakeCompleted())
+
+    def fake_invoke(cmd, timeout=60.0, quiet_window=0.5):
+        r = runner(cmd)  # may raise TimeoutExpired, like the real thing
+        return r.stdout, r.returncode
+
+    monkeypatch.setattr(b, "_invoke_hermes", fake_invoke)
+    # briefing still goes through subprocess.run
     monkeypatch.setattr(
-        b.subprocess, "run", run or (lambda cmd, **kw: FakeCompleted())
+        b.subprocess, "run", lambda cmd, **kw: FakeCompleted()
     )
     published = []
     monkeypatch.setattr(

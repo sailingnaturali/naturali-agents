@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import select
 import shutil
 import subprocess
 import threading
@@ -168,6 +169,48 @@ def alert_query(env: dict) -> str:
     )
 
 
+def _invoke_hermes(cmd: list, timeout: float = 60.0,
+                   quiet_window: float = 0.5) -> tuple[str, int]:
+    """Run hermes and return as soon as its stdout settles.
+
+    hermes -Q prints the whole response in one flush at turn end, then spends
+    ~2-4 s tearing down (session save, MCP shutdown). Waiting for process exit
+    adds that teardown to every spoken answer, so: collect stdout until it has
+    been quiet for quiet_window after at least one chunk, hand the text back,
+    and leave a daemon thread to drain and reap the process.
+
+    Returns (stdout_text, returncode); returncode is 0 on the early-return
+    path (an answer exists; the eventual exit status no longer matters).
+    Raises subprocess.TimeoutExpired if the deadline passes first.
+    """
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    deadline = time.monotonic() + timeout
+    chunks: list[bytes] = []
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            proc.kill()
+            proc.communicate()
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        wait = min(quiet_window, remaining) if chunks else remaining
+        ready, _, _ = select.select([proc.stdout], [], [], wait)
+        if ready:
+            chunk = os.read(proc.stdout.fileno(), 65536)
+            if chunk:
+                chunks.append(chunk)
+                continue
+            # EOF — the process is exiting anyway; reap and report honestly.
+            _, stderr = proc.communicate()
+            if proc.returncode != 0:
+                log.error("hermes exit=%d stderr: %s", proc.returncode,
+                          stderr.decode("utf-8", "replace").strip())
+            return b"".join(chunks).decode("utf-8", "replace"), proc.returncode
+        if chunks:
+            # stdout settled: the answer is complete; drain/reap off-path.
+            threading.Thread(target=proc.communicate, daemon=True).start()
+            return b"".join(chunks).decode("utf-8", "replace"), 0
+
+
 def _run_hermes(query: str, model: str | None = None,
                 timing: dict | None = None, trace_id: str | None = None) -> None:
     """Run a single Hermes query and pipe the response to MQTT TTS.
@@ -182,12 +225,7 @@ def _run_hermes(query: str, model: str | None = None,
         cmd[2:2] = ["-m", model]  # insert after "chat"
     t0 = time.monotonic()
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        stdout_text, rc = _invoke_hermes(cmd, timeout=60)
     except subprocess.TimeoutExpired:
         log.error("hermes timed out for query: %s", query)
         _record_hermes(timing, dt_hermes=time.monotonic() - t0, rc="timeout",
@@ -195,13 +233,12 @@ def _run_hermes(query: str, model: str | None = None,
         return
     dt_hermes = time.monotonic() - t0
 
-    if result.returncode != 0:
-        log.error("hermes exit=%d stderr: %s", result.returncode, result.stderr.strip())
-        _record_hermes(timing, dt_hermes=dt_hermes, rc=result.returncode,
+    if rc != 0:
+        _record_hermes(timing, dt_hermes=dt_hermes, rc=rc,
                        query=query, response="", model=model)
         return
 
-    lines = [l for l in result.stdout.splitlines() if is_response_line(l)]
+    lines = [l for l in stdout_text.splitlines() if is_response_line(l)]
     response = " ".join(lines).strip()
     dt_publish = None  # stays None when nothing was published
     if response:
@@ -219,7 +256,7 @@ def _run_hermes(query: str, model: str | None = None,
             auth=auth,
         )
         dt_publish = time.monotonic() - t_pub
-    _record_hermes(timing, dt_hermes=dt_hermes, rc=result.returncode, query=query,
+    _record_hermes(timing, dt_hermes=dt_hermes, rc=rc, query=query,
                    response=response, dt_publish=dt_publish, model=model)
 
 
