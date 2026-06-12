@@ -8,7 +8,7 @@ Persona and voice live in [SOUL.md](SOUL.md); per-agent responsibilities live in
 
 ```
 Home Assistant (Pi 5)        Mac Studio                   Pi 5 / boat
-  voice intent  ──MQTT──▶  mqtt_to_hermes.py  ──exec──▶  hermes chat
+  voice intent  ──MQTT──▶  mqtt_to_hermes.py  ──exec──▶  Poseidon (ask/alarm agent)
                                                               │
                                                               ▼
                                                           signalk-mcp ──▶ SignalK server
@@ -132,7 +132,7 @@ This split is intentional and not a contradiction.
 
 ## Persona composition
 
-Hermes loads each agent with two prompt sources concatenated, SOUL first:
+Poseidon loads each agent with two prompt sources concatenated, SOUL first:
 
 ```
 <SOUL.md>

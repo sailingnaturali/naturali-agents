@@ -49,14 +49,14 @@ never drift from what runs.
 
 ```
 Home Assistant (Pi 5)        Mac Studio                      data sources
-  voice intent  ──MQTT──▶  mqtt_to_hermes.py  ──exec──▶  hermes chat
+  voice intent  ──MQTT──▶  mqtt_to_hermes.py  ──exec──▶  Poseidon (ask/alarm agent)
                                                               │
-  daily cron    ────────▶  scripts/briefing.py ─────────────┤
+  daily cron    ────────▶  scripts/briefing.py ─────────────┤  (Hermes: signal/MQTT/briefing)
                                                               ▼
                                                         MCP servers:
                                                           signalk-mcp   ──▶ SignalK
                                                           logbook-mcp   ──▶ signalk-logbook (Pi)
-                                                          tide-mcp      ──▶ CHS + NOAA
+                                                          currents-mcp  ──▶ CHS + NOAA
                                                           weather-mcp   ──▶ Open-Meteo / NDBC / Stormglass
                                                           pilotbook-mcp ──▶ anchorage vault
                                                               │
@@ -101,7 +101,7 @@ Local development needs no boat. Start the mock SignalK server, then talk to the
 ```bash
 python dev/mock-signalk.py            # serves Boundary Pass scenario on :8765
 export SIGNALK_URL=http://localhost:8765
-hermes chat -s naturali/navigator     # ask the Navigator anything
+# poseidon (see Poseidon runtime) — Poseidon is the ask/alarm agent
 ```
 
 Edit the Navigator skill in `skills/navigator/`, then deploy it to the Hermes runtime:
@@ -127,7 +127,7 @@ uv run pytest
 
 - [`signalk-mcp`](https://github.com/sailingnaturali/signalk-mcp) — live marine data from SignalK
 - [`logbook-mcp`](https://github.com/sailingnaturali/logbook-mcp) — sea-day logging and marked moments
-- [`tide-mcp`](https://github.com/sailingnaturali/tide-mcp) — tidal-gate slack windows and tide heights (CHS + NOAA)
+- [`currents-mcp`](https://github.com/sailingnaturali/currents-mcp) — currents and tidal-gate slack windows, tide heights (CHS + NOAA)
 - [`weather-mcp`](https://github.com/sailingnaturali/weather-mcp) — marine forecast, NDBC buoys, Stormglass premium
 - [`pilotbook-mcp`](https://github.com/sailingnaturali/pilotbook-mcp) — pilot-book anchorages and overnight-comfort ranking
 - [`infrastructure`](https://github.com/sailingnaturali/infrastructure) — private; Pi 5 + network configs
