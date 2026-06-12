@@ -538,7 +538,15 @@ def build_tide_chart(tide: list[dict] | None) -> str:
     def Y(v: float) -> float:
         return T + plot_h * (1 - (v - lo_a) / span_a)
 
-    parts = [f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" class="tide" role="img" aria-label="Tide height over the day">']
+    t_start_epoch = int(times[0].timestamp()) if times[0] else 0
+    t_end_epoch = int(times[-1].timestamp()) if times[-1] else 0
+    parts = [
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" class="tide"'
+        f' role="img" aria-label="Tide height over the day"'
+        f' data-t-start="{t_start_epoch}" data-t-end="{t_end_epoch}"'
+        f' data-x-left="{L}" data-x-right="{L + plot_w}"'
+        f' data-y-top="{T}" data-y-bottom="{base_y}">'
+    ]
     # horizontal gridlines + metre labels
     for v in (lo, (lo + hi) / 2, hi):
         y = Y(v)
@@ -560,13 +568,17 @@ def build_tide_chart(tide: list[dict] | None) -> str:
     for i, h in enumerate(heights):
         if h in (hi, lo):
             parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(h):.1f}" r="3.5" fill="#fbbf24"/>')
-    # "now" marker, only if inside the data window
+    # "now" marker — static initial position (JS updates it on page load)
     now = datetime.now().astimezone()
     if times[0] and times[-1] and times[0] <= now <= times[-1]:
         ni = min(range(n), key=lambda i: abs((times[i] - now).total_seconds()) if times[i] else 1e18)
         xn = X(ni)
-        parts.append(f'<line x1="{xn:.1f}" y1="{T}" x2="{xn:.1f}" y2="{base_y}" stroke="#5eead4" stroke-width="1.5" stroke-dasharray="4 3"/>')
-        parts.append(f'<text x="{xn:.1f}" y="{T + 10:.1f}" fill="#5eead4" font-size="11" text-anchor="middle">now</text>')
+        vis = ""
+    else:
+        xn = X(0)
+        vis = ' visibility="hidden"'
+    parts.append(f'<line id="tide-now-line" x1="{xn:.1f}" y1="{T}" x2="{xn:.1f}" y2="{base_y}" stroke="#5eead4" stroke-width="1.5" stroke-dasharray="4 3"{vis}/>')
+    parts.append(f'<text id="tide-now-label" x="{xn:.1f}" y="{T + 10:.1f}" fill="#5eead4" font-size="11" text-anchor="middle"{vis}>now</text>')
     parts.append("</svg>")
     return "".join(parts)
 

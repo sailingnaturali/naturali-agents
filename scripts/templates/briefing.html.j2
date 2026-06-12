@@ -244,6 +244,31 @@
        meta tags above only matter when a request is actually made. Reload ourselves
        periodically with a fresh cache-buster so a wall display picks up each new day. -->
   <script>
+    function updateTideNow() {
+      var svg = document.querySelector('svg.tide');
+      if (!svg) return;
+      var tStart = parseInt(svg.dataset.tStart, 10);
+      var tEnd = parseInt(svg.dataset.tEnd, 10);
+      var xLeft = parseFloat(svg.dataset.xLeft);
+      var xRight = parseFloat(svg.dataset.xRight);
+      var now = Date.now() / 1000;
+      var line = document.getElementById('tide-now-line');
+      var label = document.getElementById('tide-now-label');
+      if (!line || !label) return;
+      if (now >= tStart && now <= tEnd) {
+        var xn = (xLeft + (xRight - xLeft) * (now - tStart) / (tEnd - tStart)).toFixed(1);
+        line.setAttribute('x1', xn);
+        line.setAttribute('x2', xn);
+        line.removeAttribute('visibility');
+        label.setAttribute('x', xn);
+        label.removeAttribute('visibility');
+      } else {
+        line.setAttribute('visibility', 'hidden');
+        label.setAttribute('visibility', 'hidden');
+      }
+    }
+    updateTideNow();
+    setInterval(updateTideNow, 60000);
     setTimeout(function () {
       window.location.replace(window.location.pathname + "?v=" + Date.now());
     }, 30 * 60 * 1000);
