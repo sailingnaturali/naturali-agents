@@ -18,7 +18,7 @@ _TOPICS: dict[str, str] = {
     "mcp__colregs": "the rules of the road",
     "mcp__vessel-knowledge": "the equipment notes",
     "mcp__logbook": "the logbook",
-    "mcp__outstations": "the outstations",
+    "mcp__club-moorage": "the outstations",
     "Agent": "with the crew",
 }
 

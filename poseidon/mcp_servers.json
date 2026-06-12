@@ -53,10 +53,10 @@
       "VESSEL_KNOWLEDGE_BINDINGS_PATH": "~/src/sailingnaturali/infrastructure/mac-dev/signalk-config/bindings.json"
     }
   },
-  "outstations": {
+  "club-moorage": {
     "type": "stdio",
     "command": "~/.local/bin/uv",
-    "args": ["run", "--project", "~/src/sailingnaturali/outstations-mcp", "outstations-mcp"],
+    "args": ["run", "--project", "~/src/sailingnaturali/club-moorage-mcp", "club-moorage-mcp"],
     "env": {}
   }
 }

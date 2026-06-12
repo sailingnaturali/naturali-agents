@@ -30,7 +30,7 @@ from poseidon import config, prompts
 # "mcp__<server>" entries match every tool that server exposes.
 NAVIGATOR_TOOLS = [
     "mcp__signalk", "mcp__weather", "mcp__currents", "mcp__pilotbook",
-    "mcp__colregs", "mcp__outstations",
+    "mcp__colregs", "mcp__club-moorage",
     "Agent",  # delegation to Engineer/Logbook subagents
 ]
 ENGINEER_TOOLS = ["mcp__vessel-knowledge", "mcp__signalk"]

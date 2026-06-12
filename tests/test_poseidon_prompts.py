@@ -110,7 +110,7 @@ def test_crew_options_constructs_with_two_subagents():
     assert isinstance(opts.mcp_servers, dict)
     expected_servers = {
         "signalk", "logbook", "currents", "weather",
-        "pilotbook", "colregs", "vessel-knowledge", "outstations",
+        "pilotbook", "colregs", "vessel-knowledge", "club-moorage",
     }
     assert expected_servers == set(opts.mcp_servers.keys())
     # hard Navigator scoping: vessel-knowledge and logbook blocked from main context
