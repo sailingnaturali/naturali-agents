@@ -48,6 +48,15 @@ _MD_CODE = re.compile(r"`([^`\n]*)`")
 _MD_HEADING = re.compile(r"^#{1,6}\s+", re.MULTILINE)
 _MD_BULLET = re.compile(r"^- ", re.MULTILINE)
 _MD_BLANKS = re.compile(r"\n{3,}")
+_MD_TABLE_RULE = re.compile(r"^\|?[-:| ]+\|?$", re.MULTILINE)
+# TTS reads abbreviations literally ("13 kn" -> "thirteen kay-en");
+# normalize the marine units the model still abbreviates despite the
+# prompt rule. Number-adjacent only, so prose words are never touched.
+_UNIT_KN = re.compile(r"\b(\d+(?:\.\d+)?)\s*(?:kn|kts|kt)\b")
+_UNIT_NM = re.compile(r"\b(\d+(?:\.\d+)?)\s*nm\b")
+_DEG_T = re.compile(r"\u00b0\s*T\b")
+_DEG_M = re.compile(r"\u00b0\s*M\b")
+_DEG = re.compile(r"\u00b0")
 
 
 def _strip_markdown(text: str) -> str:
@@ -57,7 +66,18 @@ def _strip_markdown(text: str) -> str:
     text = _MD_CODE.sub(r"\1", text)
     text = _MD_HEADING.sub("", text)
     text = _MD_BULLET.sub("", text)
+    text = _MD_TABLE_RULE.sub("", text)
+    text = text.replace(" | ", ", ").replace("|", ",")
     return _MD_BLANKS.sub("\n\n", text)
+
+
+def _normalize_speech(text: str) -> str:
+    """Unit abbreviations -> spoken words (deterministic, number-adjacent)."""
+    text = _UNIT_KN.sub(r"\1 knots", text)
+    text = _UNIT_NM.sub(r"\1 nautical miles", text)
+    text = _DEG_T.sub(" degrees true", text)
+    text = _DEG_M.sub(" degrees magnetic", text)
+    return _DEG.sub(" degrees", text)
 
 
 def publish_say(text: str, trace_id: str | None = None,
@@ -73,7 +93,8 @@ def publish_say(text: str, trace_id: str | None = None,
     """
     auth = ({"username": config.MQTT_USER, "password": config.MQTT_PASSWORD}
             if config.MQTT_USER else None)
-    say: dict = {"agent": config.AGENT_NAME, "text": _strip_markdown(text)}
+    say: dict = {"agent": config.AGENT_NAME,
+                 "text": _normalize_speech(_strip_markdown(text))}
     if trace_id:
         say["trace_id"] = trace_id
     if interim:
@@ -141,9 +162,10 @@ class Poseidon:
         interim_tasks: list[asyncio.Task] = []
 
         def on_interim(phrase: str) -> None:
-            # interim says carry NO trace_id -> HA broadcasts, never resolves
-            # the waiting intent script (spec §4). Fire-and-forget, but keep
-            # the task reference so it isn't garbage-collected mid-flight.
+            # interim says carry NO trace_id and interim=true; HA skips
+            # them entirely for now (announce kills the puck session, and the
+            # ask-roundtrip wait must only match the final say). Fire-and-
+            # forget, but keep the task ref so it isn't GC'd mid-flight.
             interim_tasks.append(
                 loop.create_task(asyncio.to_thread(
                     self._publish, phrase, None, True)))  # interim=True

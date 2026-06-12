@@ -82,10 +82,19 @@ def _read(rel: str) -> str:
     return text.replace("{{VESSEL_NAME}}", VESSEL_NAME)
 
 
+TTS_ADDENDUM = """# Spoken output
+
+Every reply is spoken aloud over the cabin speaker by TTS. Plain
+conversational prose only — never markdown, tables, bullet lists, or
+headings. Write units out as words: knots (never kn or kts), nautical
+miles (never nm), metres (never m), degrees true or magnetic (never
+\u00b0T or \u00b0M). Honor the spoken-reply budget strictly."""
+
+
 def crew_system_prompt() -> str:
     return _modernize_tool_names(
         _read("SOUL.md") + "\n\n# Navigator duties\n\n" +
-        _read("skills/navigator/body.md"))
+        _read("skills/navigator/body.md")) + "\n\n" + TTS_ADDENDUM
 
 
 def engineer_prompt() -> str:

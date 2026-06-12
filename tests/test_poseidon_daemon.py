@@ -139,3 +139,15 @@ def test_run_env_reload_applies_mqtt_creds(monkeypatch, tmp_path):
     monkeypatch.delenv("MQTT_USER", raising=False)
     monkeypatch.delenv("MQTT_PASSWORD", raising=False)
     importlib.reload(config)
+
+
+def test_speech_normalization_units_and_tables():
+    text = ("Wind **13 kn** from the NW, seas 0.5 m.\n"
+            "| Name | Dist |\n|---|---|\n| Clam Bay | 4.2 nm |\n"
+            "Course 305°T, bearing 120°M, then 90°.")
+    out = daemon._normalize_speech(daemon._strip_markdown(text))
+    assert "13 knots" in out and "kn " not in out
+    assert "4.2 nautical miles" in out
+    assert "305 degrees true" in out and "120 degrees magnetic" in out
+    assert "90 degrees" in out
+    assert "|" not in out and "---" not in out
