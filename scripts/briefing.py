@@ -314,39 +314,6 @@ def fetch_tides(lat: float, lon: float) -> dict | None:
         return None
 
 
-def fetch_tide_curve(lat: float, lon: float) -> list[dict] | None:
-    """Fetch the continuous (wlp) water-level series for the SVG tide curve.
-
-    Spans the **local** calendar day (midnight→midnight local) so the chart's
-    x-axis reads 00:00–24:00 local. Uses the same nearest-station selection as
-    fetch_tides. Returns a list of {"time_utc", "height_m"} or None.
-    """
-    try:
-        sr = httpx.get(CHS_STATIONS_URL, timeout=15)
-        sr.raise_for_status()
-        station = _nearest_tide_station(lat, lon, sr.json())
-
-        start_local = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
-        end_local = start_local + timedelta(days=1)
-        dr = httpx.get(
-            CHS_DATA_URL.format(station_id=station["id"]),
-            params={
-                "time-series-code": "wlp",
-                "from": start_local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "to": end_local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            },
-            timeout=15,
-        )
-        dr.raise_for_status()
-        return [
-            {"time_utc": e["eventDate"], "height_m": round(e["value"], 2)}
-            for e in dr.json()
-        ]
-    except Exception as e:
-        log.warning("fetch_tide_curve failed: %s", e)
-        return None
-
-
 _RETRY_BACKOFF_S = (1.0, 3.0)
 
 
@@ -493,92 +460,6 @@ def build_wind_compass(direction_deg: float | None, speed_kn: float | None) -> s
     # centre speed
     parts.append(f'<text x="{cx}" y="{cy - 1:.1f}" fill="#e5e7eb" font-size="26" font-weight="700" text-anchor="middle">{speed_kn:.0f}</text>')
     parts.append(f'<text x="{cx}" y="{cy + 15:.1f}" fill="#94a3b8" font-size="11" text-anchor="middle">kn</text>')
-    parts.append("</svg>")
-    return "".join(parts)
-
-
-def build_tide_chart(tide: list[dict] | None) -> str:
-    """Inline SVG area chart of tide height over the day, with labelled axes.
-
-    tide is fetch_tide_curve output [{"time_utc", "height_m"}]. Pure function;
-    returns "" when there is no data. Y-axis is metres; X-axis is local time.
-    """
-    if not tide:
-        return ""
-
-    # Downsample the (often per-minute) series to keep the SVG small; the curve
-    # is smooth so ~180 points is visually identical.
-    MAXP = 180
-    if len(tide) > MAXP:
-        step = len(tide) / MAXP
-        tide = [tide[int(i * step)] for i in range(MAXP)] + [tide[-1]]
-
-    W, H = 720, 240
-    L, R_, T, B = 46, 14, 18, 30  # paddings (left=y-labels, bottom=x-labels)
-    plot_w, plot_h = W - L - R_, H - T - B
-    base_y = T + plot_h
-
-    heights = [p["height_m"] for p in tide]
-    times = []
-    for p in tide:
-        try:
-            times.append(datetime.fromisoformat(p["time_utc"].replace("Z", "+00:00")).astimezone())
-        except Exception:
-            times.append(None)
-
-    lo, hi = min(heights), max(heights)
-    pad_v = (hi - lo) * 0.1 or 0.1
-    lo_a, hi_a = lo - pad_v, hi + pad_v
-    span_a = hi_a - lo_a
-    n = len(tide)
-
-    def X(i: int) -> float:
-        return L + plot_w * (i / (n - 1) if n > 1 else 0.5)
-
-    def Y(v: float) -> float:
-        return T + plot_h * (1 - (v - lo_a) / span_a)
-
-    t_start_epoch = int(times[0].timestamp()) if times[0] else 0
-    t_end_epoch = int(times[-1].timestamp()) if times[-1] else 0
-    parts = [
-        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" class="tide"'
-        f' role="img" aria-label="Tide height over the day"'
-        f' data-t-start="{t_start_epoch}" data-t-end="{t_end_epoch}"'
-        f' data-x-left="{L}" data-x-right="{L + plot_w}"'
-        f' data-y-top="{T}" data-y-bottom="{base_y}">'
-    ]
-    # horizontal gridlines + metre labels
-    for v in (lo, (lo + hi) / 2, hi):
-        y = Y(v)
-        parts.append(f'<line x1="{L}" y1="{y:.1f}" x2="{W - R_}" y2="{y:.1f}" stroke="#1e293b" stroke-width="1"/>')
-        parts.append(f'<text x="{L - 8}" y="{y + 4:.1f}" fill="#94a3b8" font-size="12" text-anchor="end">{v:.1f} m</text>')
-    # vertical gridlines + local-time labels (5 ticks)
-    ticks = 4
-    for k in range(ticks + 1):
-        i = round((n - 1) * k / ticks)
-        x = X(i)
-        parts.append(f'<line x1="{x:.1f}" y1="{T}" x2="{x:.1f}" y2="{base_y}" stroke="#1e293b" stroke-width="1"/>')
-        lbl = times[i].strftime("%H:%M") if times[i] else ""
-        parts.append(f'<text x="{x:.1f}" y="{H - B + 18:.1f}" fill="#94a3b8" font-size="12" text-anchor="middle">{lbl}</text>')
-    # area fill + line
-    line_pts = " ".join(f"{X(i):.1f},{Y(h):.1f}" for i, h in enumerate(heights))
-    parts.append(f'<polygon points="{X(0):.1f},{base_y:.1f} {line_pts} {X(n - 1):.1f},{base_y:.1f}" fill="#fbbf24" fill-opacity="0.15"/>')
-    parts.append(f'<polyline points="{line_pts}" fill="none" stroke="#fbbf24" stroke-width="2.5"/>')
-    # hi/lo dots
-    for i, h in enumerate(heights):
-        if h in (hi, lo):
-            parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(h):.1f}" r="3.5" fill="#fbbf24"/>')
-    # "now" marker — static initial position (JS updates it on page load)
-    now = datetime.now().astimezone()
-    if times[0] and times[-1] and times[0] <= now <= times[-1]:
-        ni = min(range(n), key=lambda i: abs((times[i] - now).total_seconds()) if times[i] else 1e18)
-        xn = X(ni)
-        vis = ""
-    else:
-        xn = X(0)
-        vis = ' visibility="hidden"'
-    parts.append(f'<line id="tide-now-line" x1="{xn:.1f}" y1="{T}" x2="{xn:.1f}" y2="{base_y}" stroke="#5eead4" stroke-width="1.5" stroke-dasharray="4 3"{vis}/>')
-    parts.append(f'<text id="tide-now-label" x="{xn:.1f}" y="{T + 10:.1f}" fill="#5eead4" font-size="11" text-anchor="middle"{vis}>now</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -1108,14 +989,14 @@ def prune_empty(briefing: dict) -> dict:
 
 
 def render_html(briefing: dict, wind: dict | None = None, compass_svg: str = "",
-                tide_svg: str = "", tank_panels: list[str] | None = None,
+                tides_url: str = "", tank_panels: list[str] | None = None,
                 vessel_name: str = "Naturali", house_panel: str = "") -> str:
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),
         autoescape=select_autoescape(["html"]),
     )
     return env.get_template("briefing.html.j2").render(
-        b=briefing, wind=wind, compass_svg=compass_svg, tide_svg=tide_svg,
+        b=briefing, wind=wind, compass_svg=compass_svg, tides_url=tides_url,
         tank_panels=tank_panels or [], vessel_name=vessel_name, house_panel=house_panel,
     )
 
@@ -1206,12 +1087,13 @@ def main(dry_run: bool = False) -> None:
     current_wind = fetch_current_wind(lat, lon)
     if current_wind:
         current_wind["cardinal"] = cardinal(current_wind["direction_deg"])
-    tide_curve = fetch_tide_curve(lat, lon)
     compass_svg = (
         build_wind_compass(current_wind["direction_deg"], current_wind["speed_kn"])
         if current_wind else ""
     )
-    tide_svg = build_tide_chart(tide_curve)
+    # The signalk-tides webapp renders the full interactive chart — link out
+    # instead of duplicating a static curve here.
+    tides_url = f"{SIGNALK_URL}/signalk-tides/"
 
     try:
         hp = fetch_house_power()
@@ -1240,7 +1122,7 @@ def main(dry_run: bool = False) -> None:
         except Exception as e:
             log.warning("tank panel %s failed: %s", spec.key, e)
 
-    html = render_html(structured, current_wind, compass_svg, tide_svg, tank_panels,
+    html = render_html(structured, current_wind, compass_svg, tides_url, tank_panels,
                        vessel_name=fetch_vessel_name(), house_panel=house_panel)
     markdown = render_markdown(structured)
 

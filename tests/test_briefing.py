@@ -216,18 +216,16 @@ def test_parse_briefing_response_invalid_returns_none():
     assert briefing.parse_briefing_response("") is None
 
 
-def test_build_tide_chart_renders_svg():
-    tide = [{"time_utc": f"2026-05-30T{h:02d}:00:00Z", "height_m": m}
-            for h, m in enumerate([1.0, 1.8, 2.6, 3.0, 2.4, 1.2])]
-    svg = briefing.build_tide_chart(tide)
-    assert svg.startswith("<svg")
-    assert "</svg>" in svg
-    assert "polyline" in svg or "path" in svg
+def test_render_html_links_to_tides_webapp():
+    html = briefing.render_html(STRUCTURED["briefing"],
+                                tides_url="http://naturalaspi.local:3000/signalk-tides/")
+    assert 'href="http://naturalaspi.local:3000/signalk-tides/"' in html
+    assert "<svg" not in html or 'class="tide"' not in html
 
 
-def test_build_tide_chart_empty_returns_empty_string():
-    assert briefing.build_tide_chart([]) == ""
-    assert briefing.build_tide_chart(None) == ""
+def test_render_html_omits_tides_link_when_no_url():
+    html = briefing.render_html(STRUCTURED["briefing"])
+    assert "signalk-tides" not in html
 
 
 def test_build_wind_compass_renders_svg():

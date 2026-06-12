@@ -131,6 +131,9 @@
     .wd-row b { color: var(--text); font-weight: 600; }
     .wind-dial { flex: 0 0 150px; }
     .panel svg { max-width: 100%; height: auto; display: block; }
+    .tides-link { margin-top: 0.8rem; }
+    .tides-link a { color: var(--teal); text-decoration: none; }
+    .tides-link a:hover { text-decoration: underline; }
     .tank-panel { margin: 0.4rem 0 1.1rem; }
     .tank-panel:last-child { margin-bottom: 0.3rem; }
     .tank-panel svg { max-width: 100%; height: auto; display: block; }
@@ -208,11 +211,8 @@
           </div>
         </div>
         {% endif %}
-        {% if tide_svg %}
-        <div class="panel">
-          <div class="panel-h">Tide</div>
-          {{ tide_svg|safe }}
-        </div>
+        {% if tides_url %}
+        <p class="tides-link"><a href="{{ tides_url }}" target="_blank" rel="noopener">Full tide chart →</a></p>
         {% endif %}
       </section>
 
@@ -244,31 +244,6 @@
        meta tags above only matter when a request is actually made. Reload ourselves
        periodically with a fresh cache-buster so a wall display picks up each new day. -->
   <script>
-    function updateTideNow() {
-      var svg = document.querySelector('svg.tide');
-      if (!svg) return;
-      var tStart = parseInt(svg.dataset.tStart, 10);
-      var tEnd = parseInt(svg.dataset.tEnd, 10);
-      var xLeft = parseFloat(svg.dataset.xLeft);
-      var xRight = parseFloat(svg.dataset.xRight);
-      var now = Date.now() / 1000;
-      var line = document.getElementById('tide-now-line');
-      var label = document.getElementById('tide-now-label');
-      if (!line || !label) return;
-      if (now >= tStart && now <= tEnd) {
-        var xn = (xLeft + (xRight - xLeft) * (now - tStart) / (tEnd - tStart)).toFixed(1);
-        line.setAttribute('x1', xn);
-        line.setAttribute('x2', xn);
-        line.removeAttribute('visibility');
-        label.setAttribute('x', xn);
-        label.removeAttribute('visibility');
-      } else {
-        line.setAttribute('visibility', 'hidden');
-        label.setAttribute('visibility', 'hidden');
-      }
-    }
-    updateTideNow();
-    setInterval(updateTideNow, 60000);
     setTimeout(function () {
       window.location.replace(window.location.pathname + "?v=" + Date.now());
     }, 30 * 60 * 1000);
