@@ -384,6 +384,8 @@ Scores one ask (tool set match + optional arg-subset check) and aggregates many 
 Create `naturali-agents/tests/test_bench_scoring.py`:
 
 ```python
+import pytest
+
 from poseidon.bench.golden import Ask
 from poseidon.bench.scoring import (
     AskResult,
@@ -431,7 +433,7 @@ def test_score_ask_arg_subset_checked_when_present():
 def test_percentile_p50_p95():
     data = [1.0, 2.0, 3.0, 4.0, 5.0]
     assert percentile(data, 50) == 3.0
-    assert percentile(data, 95) == 5.0
+    assert percentile(data, 95) == pytest.approx(4.8)  # rank 3.8 → interpolate 4.0..5.0
 
 
 def test_build_scorecard_aggregates():

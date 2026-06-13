@@ -1,0 +1,58 @@
+[
+  {
+    "id": "depth",
+    "category": "engineer-direct",
+    "prompt": "What's my depth right now?",
+    "expected_tools": ["mcp__signalk__depth_state"],
+    "multi_tool": false
+  },
+  {
+    "id": "battery",
+    "category": "engineer-direct",
+    "prompt": "How's the battery doing?",
+    "expected_tools": ["mcp__signalk__battery_state"],
+    "multi_tool": false
+  },
+  {
+    "id": "alarms",
+    "category": "engineer-direct",
+    "prompt": "Are there any active alarms?",
+    "expected_tools": ["mcp__signalk__get_active_alarms"],
+    "multi_tool": false
+  },
+  {
+    "id": "wind-forecast",
+    "category": "navigator",
+    "prompt": "What's the wind forecast for tonight?",
+    "expected_tools": ["mcp__weather__get_marine_forecast"],
+    "multi_tool": false
+  },
+  {
+    "id": "current-boundary",
+    "category": "navigator",
+    "prompt": "What's the current doing at Boundary Pass?",
+    "expected_tools": ["mcp__currents__get_tidal_gate"],
+    "multi_tool": false
+  },
+  {
+    "id": "anchorage-near",
+    "category": "navigator",
+    "prompt": "Find me an anchorage near here for tonight.",
+    "expected_tools": ["mcp__pilotbook__find_anchorages_near"],
+    "multi_tool": false
+  },
+  {
+    "id": "safe-to-anchor",
+    "category": "navigator-multi",
+    "prompt": "Is it safe to anchor here tonight given the weather and current?",
+    "expected_tools": ["mcp__pilotbook__find_anchorages_near", "mcp__weather__get_marine_forecast"],
+    "multi_tool": true
+  },
+  {
+    "id": "explain-alarm",
+    "category": "delegated",
+    "prompt": "What does the low house battery alarm mean and what should I do?",
+    "expected_tools": ["Agent"],
+    "multi_tool": false
+  }
+]
