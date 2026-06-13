@@ -51,7 +51,7 @@ Module constant `TANKS = [TankSpec(blackWater, fill, …), TankSpec(freshWater, 
   tank/SignalK is absent.
 - `record_tank_reading(key, level_pct)` — insert into a new table:
   `tank_readings(id INTEGER PK, tank TEXT, level REAL, timestamp TEXT)` in
-  `~/.naturali/logbook.db`. Only called when a real level exists.
+  `~/.naturali/briefings.db`. Only called when a real level exists.
 - `tank_history(key, limit=30) -> list[(timestamp, level)]` — recent rows for
   the tank, oldest→newest.
 
