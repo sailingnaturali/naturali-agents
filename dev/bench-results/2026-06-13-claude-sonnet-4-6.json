@@ -1,10 +1,10 @@
 {
   "model": "claude-sonnet-4-6",
   "n": 8,
-  "correctness": 0.5,
+  "correctness": 0.75,
   "error_rate": 0.0,
-  "latency_p50": 11.111,
-  "latency_p95": 32.279,
+  "latency_p50": 8.766,
+  "latency_p95": 30.711,
   "per_ask": [
     {
       "id": "depth",
@@ -16,7 +16,7 @@
         "mcp__signalk__depth_state"
       ],
       "match": true,
-      "dt_total": 3.502,
+      "dt_total": 4.536,
       "is_error": false
     },
     {
@@ -29,7 +29,7 @@
         "mcp__signalk__battery_state"
       ],
       "match": true,
-      "dt_total": 3.903,
+      "dt_total": 4.831,
       "is_error": false
     },
     {
@@ -42,7 +42,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 7.158,
+      "dt_total": 5.938,
       "is_error": false
     },
     {
@@ -56,8 +56,8 @@
         "mcp__signalk__get_local_time",
         "mcp__weather__get_marine_forecast"
       ],
-      "match": false,
-      "dt_total": 15.064,
+      "match": true,
+      "dt_total": 10.915,
       "is_error": false
     },
     {
@@ -70,7 +70,7 @@
         "mcp__currents__get_tidal_gate"
       ],
       "match": true,
-      "dt_total": 6.251,
+      "dt_total": 6.617,
       "is_error": false
     },
     {
@@ -83,8 +83,8 @@
         "mcp__pilotbook__find_anchorages_near",
         "mcp__pilotbook__rank_anchorages"
       ],
-      "match": false,
-      "dt_total": 40.252,
+      "match": true,
+      "dt_total": 36.405,
       "is_error": false
     },
     {
@@ -96,22 +96,20 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 17.362,
+      "dt_total": 18.375,
       "is_error": false
     },
     {
       "id": "explain-alarm",
       "category": "delegated",
       "expected": [
-        "Agent"
-      ],
-      "observed": [
-        "Agent",
-        "mcp__signalk__battery_state",
         "mcp__signalk__get_active_alarms"
       ],
+      "observed": [
+        "Agent"
+      ],
       "match": false,
-      "dt_total": 17.474,
+      "dt_total": 20.138,
       "is_error": false
     }
   ]
