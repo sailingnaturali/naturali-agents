@@ -1,10 +1,11 @@
 """poseidon.bench.golden — the fixed golden ask corpus + loader.
 
-v1 targets the Navigator-root-direct safety/nav core (signalk/weather/currents/
-pilotbook), where the expected tool surfaces at the top level. Delegated asks
-(Engineer/Logbook subagents) expect the top-level "Agent" delegation tool;
-capturing subagent-internal tool calls is a v2 follow-up requiring live SDK
-verification that receive_response() surfaces subagent tool_use blocks.
+Targets the Navigator-root-direct safety/nav core (signalk/weather/currents/
+pilotbook). Subagent (Engineer/Logbook) tool calls DO surface in the top-level
+receive_response() stream and are captured by the collector, so delegated asks
+are annotated with the underlying tool that reliably appears (e.g. explain-alarm
+→ get_active_alarms), not the "Agent" delegation wrapper. Scoring is recall/
+subset, so any extra helper tools the model adds do not fail an ask.
 """
 from __future__ import annotations
 
