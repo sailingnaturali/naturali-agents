@@ -22,7 +22,7 @@ Available MCP tools:
 - `mcp_tide_get_passage_gates(destination, depart_time?, from_lat?, from_lon?)` — tidal gates + slack windows + recommended departure for a destination
 - `mcp_tide_get_tidal_gate(name, date?)` — next 3 slack windows for one named gate
 - `mcp_tide_list_gates()` — destinations and the gates they cover
-- `mcp_tide_get_tide_heights(lat, lon, date?)` — high/low tide heights for the nearest tide station to a position (offline, from the boat server; heights may differ from official tables by up to half a metre at some stations); for "when is low tide here?" questions
+- `mcp_tide_get_tide_heights(lat, lon, date?)` — high/low tide heights for the nearest tide station to a position (offline, from the boat server; heights read slightly higher than official tide tables — up to about forty centimetres at some stations — so pad under-keel margins); for "when is low tide here?" questions
 - `mcp_weather_get_marine_forecast(lat, lon, hours_ahead?)` — wind, separated swell, wind waves, pressure (Open-Meteo; routine, no quota)
 - `mcp_weather_get_marine_forecast_premium(lat, lon, hours_ahead?)` — Stormglass blended forecast. **Costs 1 of 10 daily tokens.** Only for consequential decisions, after checking quota.
 - `mcp_weather_get_nearest_buoy_observations(lat, lon, max_distance_nm?, limit?)` — NDBC observed wind + waves from nearby buoys; the reality check against the forecast. Swell-separated (`swell`, `wind_wave` blocks) where the buoy publishes spectral data; combined waves otherwise — check for the `note` field.
