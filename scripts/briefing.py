@@ -9,7 +9,7 @@ Fetches tides (CHS IWLS) and an hourly wind series, passes a data block to the
 Navigator agent via hermes (which calls weather-mcp itself for wind/swell/buoys),
 then renders the synthesized structured briefing into a self-contained HTML
 document. Routes outputs to HA (HTML scp'd to /config/www + a state sensor),
-Nabu Voice (MQTT TTS), and the logbook (SQLite, as deterministic markdown).
+Nabu Voice (MQTT TTS), and the briefing archive (SQLite, as deterministic markdown).
 
 Usage:
     uv run scripts/briefing.py             # full run
@@ -56,7 +56,7 @@ OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
 HA_URL = os.environ.get("HA_URL", "http://192.168.68.90:8123")
 HA_TOKEN = os.environ.get("HOMEASSISTANT_TOKEN", "")
-LOGBOOK_DB_PATH = os.environ.get("LOGBOOK_DB_PATH", os.path.expanduser("~/.naturali/logbook.db"))
+BRIEFING_DB_PATH = os.environ.get("BRIEFING_DB_PATH", os.path.expanduser("~/.naturali/briefings.db"))
 BROKER = os.environ.get("MQTT_BROKER", "192.168.68.90")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 MQTT_USER = os.environ.get("MQTT_USER")
@@ -632,13 +632,13 @@ def publish_tts(tts_extract: str) -> None:
     log.info("TTS extract published to MQTT")
 
 
-def archive_to_logbook(briefing_markdown: str, db_path: str, lat: float, lon: float) -> None:
+def archive_briefing(briefing_markdown: str, db_path: str, lat: float, lon: float) -> None:
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             "INSERT INTO marked_moments (text, timestamp, longitude, latitude) VALUES (?, ?, ?, ?)",
             (briefing_markdown, datetime.now(timezone.utc).isoformat(), lon, lat),
         )
-    log.info("briefing archived to logbook")
+    log.info("briefing archived to %s", db_path)
 
 
 _TANK_DDL = """CREATE TABLE IF NOT EXISTS tank_readings (
@@ -667,7 +667,7 @@ def fetch_tank_level(key: str) -> float | None:
 
 
 def record_tank_reading(key: str, level_pct: float, db_path: str | None = None) -> None:
-    with sqlite3.connect(db_path or LOGBOOK_DB_PATH) as conn:
+    with sqlite3.connect(db_path or BRIEFING_DB_PATH) as conn:
         conn.execute(_TANK_DDL)
         conn.execute(
             "INSERT INTO tank_readings (tank, level, timestamp) VALUES (?, ?, ?)",
@@ -678,7 +678,7 @@ def record_tank_reading(key: str, level_pct: float, db_path: str | None = None) 
 def tank_history(key: str, limit: int = 30, db_path: str | None = None) -> list[tuple[str, float]]:
     """Recent (timestamp_iso, level) rows for a tank, oldest→newest."""
     try:
-        with sqlite3.connect(db_path or LOGBOOK_DB_PATH) as conn:
+        with sqlite3.connect(db_path or BRIEFING_DB_PATH) as conn:
             conn.execute(_TANK_DDL)
             rows = conn.execute(
                 "SELECT timestamp, level FROM tank_readings WHERE tank = ? "
@@ -1002,7 +1002,7 @@ def render_html(briefing: dict, wind: dict | None = None, compass_svg: str = "",
 
 
 def render_markdown(briefing: dict) -> str:
-    """Render deterministic markdown from the structured briefing (logbook archive)."""
+    """Render deterministic markdown from the structured briefing (briefing archive)."""
     h = briefing.get("header", {})
     lines = [f"# Daily Briefing — {h.get('date', '')}".rstrip()]
     pos_dest = " · ".join(p for p in [h.get("position"), h.get("destination")] if p)
@@ -1144,9 +1144,9 @@ def main(dry_run: bool = False) -> None:
         log.error("publish_tts failed: %s", e)
 
     try:
-        archive_to_logbook(markdown, LOGBOOK_DB_PATH, lat, lon)
+        archive_briefing(markdown, BRIEFING_DB_PATH, lat, lon)
     except Exception as e:
-        log.error("archive_to_logbook failed: %s", e)
+        log.error("archive_briefing failed: %s", e)
 
     if not html_ok:
         # The HTML is the dashboard's only source — if scp failed, the briefing

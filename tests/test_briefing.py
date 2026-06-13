@@ -279,7 +279,7 @@ def test_publish_to_ha_posts_to_rest_api(monkeypatch):
     assert "content" not in body["attributes"]
 
 
-def test_archive_to_logbook_inserts_row():
+def test_archive_briefing_inserts_row():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
     try:
@@ -296,7 +296,7 @@ def test_archive_to_logbook_inserts_row():
         conn.commit()
         conn.close()
 
-        briefing.archive_to_logbook("## Briefing text", db_path, 48.76, -123.05)
+        briefing.archive_briefing("## Briefing text", db_path, 48.76, -123.05)
 
         conn = sqlite3.connect(db_path)
         rows = conn.execute("SELECT text, latitude, longitude FROM marked_moments").fetchall()
