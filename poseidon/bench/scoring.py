@@ -1,10 +1,12 @@
 """poseidon.bench.scoring — per-ask correctness + scorecard aggregation.
 
-Tool-call correctness (ADR 0002 §Benchmark): observed top-level tool set must
-equal the expected set (order-tolerant). When an ask declares expected_args for
-a tool, the observed input for that tool must be a superset of the expected
-key/values. Latency uses p50/p95 over dt_total; the cold warm-up ask is excluded
-upstream by the runner, so every AskResult here is a warm measurement.
+Tool-call correctness (ADR 0002 §Benchmark): every expected tool must appear in
+the observed tools (recall/subset, order-tolerant); extra/helper tool calls are
+allowed and do not fail the ask — efficiency is the latency metric's job.
+When an ask declares expected_args for a tool, the observed input for that tool
+must be a superset of the expected key/values. Latency uses p50/p95 over
+dt_total; the cold warm-up ask is excluded upstream by the runner, so every
+AskResult here is a warm measurement.
 """
 from __future__ import annotations
 
@@ -37,7 +39,7 @@ class Scorecard:
 
 def score_ask(ask: Ask, observed_tools: list[str],
               observed_args: list[dict] | None = None) -> bool:
-    if set(observed_tools) != set(ask.expected_tools):
+    if not set(ask.expected_tools).issubset(set(observed_tools)):
         return False
     if not ask.expected_args:
         return True

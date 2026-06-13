@@ -27,9 +27,16 @@ def test_score_ask_order_tolerant_for_multi():
     assert score_ask(a, observed_tools=["B", "A"]) is True
 
 
-def test_score_ask_extra_tool_fails():
+def test_score_ask_extra_tool_allowed():
     a = _ask("depth", ["mcp__signalk__depth_state"])
-    assert score_ask(a, observed_tools=["mcp__signalk__depth_state", "mcp__weather__x"]) is False
+    assert score_ask(a, observed_tools=["mcp__signalk__depth_state", "mcp__weather__x"]) is True
+
+
+def test_score_ask_recall_with_helpers():
+    a = _ask("wind", ["mcp__weather__get_marine_forecast"])
+    observed = ["mcp__signalk__read_sensor", "mcp__weather__get_marine_forecast",
+                "mcp__signalk__get_local_time"]
+    assert score_ask(a, observed_tools=observed) is True
 
 
 def test_score_ask_missing_tool_fails():
