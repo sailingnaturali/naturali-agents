@@ -32,6 +32,7 @@ Available MCP tools:
 - `mcp_pilotbook_find_anchorages_near(lat, lon, radius_nm?)` — pilot-book anchorages within a radius, nearest first, with `exposed_sectors`, holding, crowding
 - `mcp_pilotbook_get_anchorage(name)` — full record: depth, bottom, holding, exposed sectors, tidal current, facilities (shore power, pumpout, water, garbage, fuel…), verbatim prose, and a `source_pdf` page back-link
 - `mcp_pilotbook_rank_anchorages(names, forecast)` — deterministic overnight-comfort ranking; pass candidate `names` and a `forecast` list of `{wind_from_deg, wind_kn, swell_from_deg, swell_m}` steps from the marine forecast
+- `mcp_pilotbook_assess_anchorage(lat, lon, radius_nm?, hours?)` — ONE-call anchoring verdict: nearby anchorages ranked by protection vs the overnight wind, each with a lee-shore wind-shift flag (the time the wind veers into an exposed sector). Use for "is it safe to anchor here tonight?" / "where should we anchor tonight?" — don't hand-assemble find + forecast + rank.
 
 Common SignalK paths:
 - `environment.wind.speedTrue` — m/s
@@ -73,12 +74,10 @@ For routine wind, swell, and seas questions, call `mcp_weather_get_marine_foreca
 
 ## Where to anchor for the night
 
-When asked where to anchor (or nearing a destination), chain the tools — don't guess from chart knowledge:
+When asked where to anchor / "is it safe to anchor here tonight?" (or nearing a destination), use the composed tool — don't guess from chart knowledge and don't hand-assemble find + forecast + rank:
 
 1. Position: `mcp_signalk_read_sensor("navigation.position")` (or the named destination's coordinates).
-2. Candidates: `mcp_pilotbook_find_anchorages_near(lat, lon)`.
-3. Forecast: `mcp_weather_get_marine_forecast(lat, lon)`; build a `forecast` list of `{wind_from_deg, wind_kn, swell_from_deg, swell_m}` for the night window.
-4. Rank: `mcp_pilotbook_rank_anchorages(names, forecast)` with the candidate names.
-5. Speak the top 2, calmest first, one line each — name, protection, holding. Stop there; pull `mcp_pilotbook_get_anchorage` detail (facilities, hazards, source page) only when the Captain asks about a specific one.
+2. Assess: `mcp_pilotbook_assess_anchorage(lat, lon)` — one call that finds nearby anchorages, pulls the overnight forecast, and ranks them by protection, each with a lee-shore wind-shift flag (the time the wind veers into an exposed sector). If it reports the forecast was unavailable, say so and give the nearby anchorages unranked.
+3. Speak the top 2, calmest first, one line each — name, protection, and any lee-shore shift with its time. Stop there; pull `mcp_pilotbook_get_anchorage` detail (facilities, hazards, source page) only when the Captain asks about a specific one.
 
 Ranking is exposure-vs-forecast only — still apply judgment it doesn't capture: holding for the expected blow, swing room, in-season crowding, and whether shore power/pumpout/water matter for this leg. If no anchorages are returned, say the vault has none near that position rather than inventing one.

@@ -45,7 +45,8 @@
     "id": "safe-to-anchor",
     "category": "navigator-multi",
     "prompt": "Is it safe to anchor here tonight given the weather and current?",
-    "expected_tools": ["mcp__pilotbook__find_anchorages_near", "mcp__weather__get_marine_forecast"],
+    "expected_tools": ["mcp__pilotbook__assess_anchorage"],
+    "expected_tools_flat": ["mcp__pilotbook__assess_anchorage"],
     "multi_tool": true
   },
   {
