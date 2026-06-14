@@ -33,3 +33,51 @@ def split_tool_name(name: str) -> tuple[str, str]:
         raise ValueError(f"not an mcp tool name: {name!r}")
     _, server, tool = name.split("__", 2)
     return server, tool
+
+
+class McpToolset:
+    """Live MCP connections for the OpenAI backend. Build via create_toolset();
+    use within a single asyncio task; call aclose() to tear down."""
+
+    def __init__(self) -> None:
+        self._stack = AsyncExitStack()
+        self._index: dict[str, tuple[ClientSession, object]] = {}  # full name -> (session, tool)
+
+    async def _add_server(self, server: str, cfg: dict) -> None:
+        params = StdioServerParameters(
+            command=cfg["command"], args=cfg.get("args", []), env=cfg.get("env"))
+        read, write = await self._stack.enter_async_context(stdio_client(params))
+        session = await self._stack.enter_async_context(ClientSession(read, write))
+        await session.initialize()
+        for tool in (await session.list_tools()).tools:
+            self._index[f"mcp__{server}__{tool.name}"] = (session, tool)
+
+    def openai_schemas(self) -> list[dict]:
+        return [to_openai_schema(split_tool_name(name)[0], tool)
+                for name, (_session, tool) in self._index.items()]
+
+    async def call(self, name: str, arguments: dict) -> str:
+        entry = self._index.get(name)
+        if entry is None:
+            return f"ERROR: unknown tool {name}"
+        session, _tool = entry
+        try:
+            result = await session.call_tool(split_tool_name(name)[1], arguments)
+        except Exception as e:  # tool errors must not kill the loop
+            return f"ERROR: {e}"
+        return "".join(getattr(b, "text", "") for b in (result.content or []))
+
+    async def aclose(self) -> None:
+        await self._stack.aclose()
+
+
+async def create_toolset(servers: dict | None = None) -> McpToolset:
+    servers = servers if servers is not None else load_mcp_servers()
+    toolset = McpToolset()
+    try:
+        for server, cfg in servers.items():
+            await toolset._add_server(server, cfg)
+    except Exception:
+        await toolset.aclose()
+        raise
+    return toolset
