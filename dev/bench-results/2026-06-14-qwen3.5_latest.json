@@ -1,10 +1,10 @@
 {
   "model": "qwen3.5:latest",
   "n": 8,
-  "correctness": 0.875,
+  "correctness": 0.75,
   "error_rate": 0.0,
-  "latency_p50": 8.782,
-  "latency_p95": 24.809,
+  "latency_p50": 8.482,
+  "latency_p95": 17.91,
   "per_ask": [
     {
       "id": "depth",
@@ -16,7 +16,7 @@
         "mcp__signalk__depth_state"
       ],
       "match": true,
-      "dt_total": 19.156,
+      "dt_total": 20.376,
       "is_error": false
     },
     {
@@ -29,7 +29,7 @@
         "mcp__signalk__battery_state"
       ],
       "match": true,
-      "dt_total": 7.482,
+      "dt_total": 7.145,
       "is_error": false
     },
     {
@@ -39,10 +39,11 @@
         "mcp__signalk__get_active_alarms"
       ],
       "observed": [
-        "mcp__signalk__get_active_alarms"
+        "mcp__signalk__get_active_alarms",
+        "mcp__signalk__get_local_time"
       ],
       "match": true,
-      "dt_total": 7.721,
+      "dt_total": 8.501,
       "is_error": false
     },
     {
@@ -51,12 +52,9 @@
       "expected": [
         "mcp__weather__get_marine_forecast"
       ],
-      "observed": [
-        "mcp__signalk__read_sensor",
-        "mcp__weather__get_marine_forecast"
-      ],
-      "match": true,
-      "dt_total": 18.914,
+      "observed": [],
+      "match": false,
+      "dt_total": 8.462,
       "is_error": false
     },
     {
@@ -69,7 +67,7 @@
         "mcp__currents__get_gate_current"
       ],
       "match": true,
-      "dt_total": 8.211,
+      "dt_total": 8.386,
       "is_error": false
     },
     {
@@ -80,23 +78,24 @@
       ],
       "observed": [
         "mcp__signalk__read_sensor",
-        "mcp__weather__get_marine_forecast",
-        "mcp__pilotbook__find_anchorages_near"
+        "mcp__pilotbook__assess_anchorage"
       ],
-      "match": true,
-      "dt_total": 27.853,
+      "match": false,
+      "dt_total": 12.696,
       "is_error": false
     },
     {
       "id": "safe-to-anchor",
       "category": "navigator-multi",
       "expected": [
-        "mcp__pilotbook__find_anchorages_near",
-        "mcp__weather__get_marine_forecast"
+        "mcp__pilotbook__assess_anchorage"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 7.46,
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "match": true,
+      "dt_total": 13.329,
       "is_error": false
     },
     {
@@ -109,7 +108,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 9.352,
+      "dt_total": 7.978,
       "is_error": false
     }
   ]

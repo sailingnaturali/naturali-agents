@@ -1,10 +1,10 @@
 {
-  "model": "hermes3:8b",
+  "model": "qwen3.6:latest",
   "n": 8,
-  "correctness": 0.375,
+  "correctness": 0.875,
   "error_rate": 0.0,
-  "latency_p50": 1.692,
-  "latency_p95": 7.867,
+  "latency_p50": 13.646,
+  "latency_p95": 23.385,
   "per_ask": [
     {
       "id": "depth",
@@ -16,7 +16,7 @@
         "mcp__signalk__depth_state"
       ],
       "match": true,
-      "dt_total": 9.239,
+      "dt_total": 24.68,
       "is_error": false
     },
     {
@@ -29,7 +29,7 @@
         "mcp__signalk__battery_state"
       ],
       "match": true,
-      "dt_total": 3.33,
+      "dt_total": 8.018,
       "is_error": false
     },
     {
@@ -42,7 +42,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 2.534,
+      "dt_total": 8.056,
       "is_error": false
     },
     {
@@ -51,9 +51,12 @@
       "expected": [
         "mcp__weather__get_marine_forecast"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 0.565,
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__weather__get_marine_forecast"
+      ],
+      "match": true,
+      "dt_total": 15.177,
       "is_error": false
     },
     {
@@ -62,9 +65,12 @@
       "expected": [
         "mcp__currents__get_gate_current"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 0.64,
+      "observed": [
+        "mcp__currents__get_gate_current",
+        "mcp__signalk__get_local_time"
+      ],
+      "match": true,
+      "dt_total": 14.602,
       "is_error": false
     },
     {
@@ -74,10 +80,11 @@
         "mcp__pilotbook__find_anchorages_near"
       ],
       "observed": [
+        "mcp__signalk__read_sensor",
         "mcp__pilotbook__assess_anchorage"
       ],
       "match": false,
-      "dt_total": 5.319,
+      "dt_total": 12.69,
       "is_error": false
     },
     {
@@ -86,9 +93,12 @@
       "expected": [
         "mcp__pilotbook__assess_anchorage"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 0.851,
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "match": true,
+      "dt_total": 20.981,
       "is_error": false
     },
     {
@@ -97,9 +107,12 @@
       "expected": [
         "mcp__signalk__get_active_alarms"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 0.671,
+      "observed": [
+        "mcp__signalk__get_active_alarms",
+        "mcp__signalk__battery_state"
+      ],
+      "match": true,
+      "dt_total": 9.536,
       "is_error": false
     }
   ]
