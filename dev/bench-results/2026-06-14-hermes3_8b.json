@@ -3,8 +3,8 @@
   "n": 8,
   "correctness": 0.5,
   "error_rate": 0.0,
-  "latency_p50": 2.262,
-  "latency_p95": 8.923,
+  "latency_p50": 1.671,
+  "latency_p95": 10.331,
   "per_ask": [
     {
       "id": "depth",
@@ -13,10 +13,10 @@
         "mcp__signalk__depth_state"
       ],
       "observed": [
-        "mcp__signalk__read_sensor"
+        "mcp__signalk__depth_state"
       ],
-      "match": false,
-      "dt_total": 8.968,
+      "match": true,
+      "dt_total": 1.7,
       "is_error": false
     },
     {
@@ -29,7 +29,7 @@
         "mcp__signalk__battery_state"
       ],
       "match": true,
-      "dt_total": 2.413,
+      "dt_total": 1.643,
       "is_error": false
     },
     {
@@ -42,7 +42,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 1.879,
+      "dt_total": 3.281,
       "is_error": false
     },
     {
@@ -51,11 +51,9 @@
       "expected": [
         "mcp__weather__get_marine_forecast"
       ],
-      "observed": [
-        "mcp__weather__get_marine_forecast"
-      ],
-      "match": true,
-      "dt_total": 8.838,
+      "observed": [],
+      "match": false,
+      "dt_total": 0.771,
       "is_error": false
     },
     {
@@ -66,7 +64,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 0.643,
+      "dt_total": 0.646,
       "is_error": false
     },
     {
@@ -79,7 +77,7 @@
         "mcp__pilotbook__find_anchorages_near"
       ],
       "match": true,
-      "dt_total": 2.11,
+      "dt_total": 7.895,
       "is_error": false
     },
     {
@@ -90,10 +88,10 @@
         "mcp__weather__get_marine_forecast"
       ],
       "observed": [
-        "mcp__signalk__get_active_alarms"
+        "mcp__weather__get_marine_forecast"
       ],
       "match": false,
-      "dt_total": 3.066,
+      "dt_total": 11.643,
       "is_error": false
     },
     {
@@ -106,7 +104,7 @@
         "mcp__vessel-knowledge__check_reading"
       ],
       "match": false,
-      "dt_total": 1.66,
+      "dt_total": 1.619,
       "is_error": false
     }
   ]
