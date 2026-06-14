@@ -35,12 +35,21 @@ def main() -> None:
                         help="incumbent scorecard JSON to compare against")
     parser.add_argument("--eps", type=float, default=0.05,
                         help="correctness tolerance for the swap rule")
+    parser.add_argument("--backend", choices=["sdk", "openai"], default="sdk",
+                        help="agent backend: sdk (Claude Agent SDK) or openai (Ollama /v1)")
+    parser.add_argument("--base-url", default="http://localhost:11434/v1",
+                        help="OpenAI-compatible base URL (openai backend)")
     args = parser.parse_args()
 
     # Env file holds ANTHROPIC_API_KEY (interim ~/.hermes/.env).
     config.load_env_file(config.ENV_FILE)
 
-    results = asyncio.run(run_benchmark(args.model, repeat=args.repeat))
+    if args.backend == "openai":
+        from poseidon.bench.oai_runner import run_benchmark_openai
+        results = asyncio.run(
+            run_benchmark_openai(args.model, args.base_url, repeat=args.repeat))
+    else:
+        results = asyncio.run(run_benchmark(args.model, repeat=args.repeat))
     card = build_scorecard(model=args.model, results=results)
     run_date = date.today().isoformat()
     paths = write_results(card, run_date=run_date)
