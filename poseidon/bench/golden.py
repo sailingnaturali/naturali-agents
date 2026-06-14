@@ -25,6 +25,7 @@ class Ask:
     expected_tools: tuple[str, ...]
     multi_tool: bool
     expected_args: dict = field(default_factory=dict)
+    expected_tools_flat: tuple[str, ...] = ()
 
 
 def load_golden_asks(path: Path | None = None) -> list[Ask]:
@@ -37,6 +38,7 @@ def load_golden_asks(path: Path | None = None) -> list[Ask]:
             expected_tools=tuple(row["expected_tools"]),
             multi_tool=bool(row.get("multi_tool", False)),
             expected_args=row.get("expected_args", {}),
+            expected_tools_flat=tuple(row.get("expected_tools_flat", ())),
         )
         for row in raw
     ]

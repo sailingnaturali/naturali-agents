@@ -25,3 +25,13 @@ def test_single_tool_asks_expect_exactly_one_tool():
     for a in load_golden_asks():
         if not a.multi_tool:
             assert len(a.expected_tools) == 1, f"{a.id} not single-tool"
+
+
+def test_explain_alarm_has_flat_expectation():
+    by_id = {a.id: a for a in load_golden_asks()}
+    assert by_id["explain-alarm"].expected_tools_flat == ("mcp__signalk__get_active_alarms",)
+
+
+def test_expected_tools_flat_defaults_empty():
+    by_id = {a.id: a for a in load_golden_asks()}
+    assert by_id["depth"].expected_tools_flat == ()
