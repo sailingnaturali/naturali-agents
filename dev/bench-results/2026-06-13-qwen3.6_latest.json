@@ -1,0 +1,132 @@
+{
+  "model": "qwen3.6:latest",
+  "n": 8,
+  "correctness": 1.0,
+  "error_rate": 0.0,
+  "latency_p50": 12.311,
+  "latency_p95": 65.13,
+  "per_ask": [
+    {
+      "id": "depth",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [
+        "mcp__signalk__depth_state"
+      ],
+      "match": true,
+      "dt_total": 10.511,
+      "is_error": false
+    },
+    {
+      "id": "battery",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__battery_state"
+      ],
+      "observed": [
+        "mcp__signalk__battery_state",
+        "mcp__signalk__list_paths"
+      ],
+      "match": true,
+      "dt_total": 8.655,
+      "is_error": false
+    },
+    {
+      "id": "alarms",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__signalk__get_active_alarms",
+        "mcp__vessel-knowledge__explain_notification"
+      ],
+      "match": true,
+      "dt_total": 12.89,
+      "is_error": false
+    },
+    {
+      "id": "wind-forecast",
+      "category": "navigator",
+      "expected": [
+        "mcp__weather__get_marine_forecast"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__signalk__get_local_time",
+        "mcp__weather__get_marine_forecast"
+      ],
+      "match": true,
+      "dt_total": 16.905,
+      "is_error": false
+    },
+    {
+      "id": "current-boundary",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_tidal_gate"
+      ],
+      "observed": [
+        "mcp__currents__get_tidal_gate",
+        "mcp__signalk__get_local_time"
+      ],
+      "match": true,
+      "dt_total": 6.887,
+      "is_error": false
+    },
+    {
+      "id": "anchorage-near",
+      "category": "navigator",
+      "expected": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "observed": [
+        "signalk__read_sensor",
+        "mcp__signalk__read_sensor",
+        "signalk__get_local_time",
+        "mcp__signalk__get_local_time",
+        "mcp__pilotbook__find_anchorages_near",
+        "mcp__weather__get_marine_forecast",
+        "mcp__pilotbook__rank_anchorages"
+      ],
+      "match": true,
+      "dt_total": 75.408,
+      "is_error": false
+    },
+    {
+      "id": "safe-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__find_anchorages_near",
+        "mcp__weather__get_marine_forecast"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__signalk__get_local_time",
+        "mcp__signalk__depth_state",
+        "mcp__pilotbook__find_anchorages_near",
+        "mcp__weather__get_marine_forecast"
+      ],
+      "match": true,
+      "dt_total": 46.043,
+      "is_error": false
+    },
+    {
+      "id": "explain-alarm",
+      "category": "delegated",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__signalk__battery_state",
+        "mcp__signalk__get_active_alarms",
+        "mcp__vessel-knowledge__find_equipment"
+      ],
+      "match": true,
+      "dt_total": 11.731,
+      "is_error": false
+    }
+  ]
+}
