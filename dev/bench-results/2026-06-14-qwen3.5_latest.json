@@ -1,10 +1,10 @@
 {
   "model": "qwen3.5:latest",
   "n": 8,
-  "correctness": 0.5,
+  "correctness": 0.75,
   "error_rate": 0.125,
-  "latency_p50": 10.872,
-  "latency_p95": 31.191,
+  "latency_p50": 9.028,
+  "latency_p95": 32.588,
   "per_ask": [
     {
       "id": "depth",
@@ -12,12 +12,10 @@
       "expected": [
         "mcp__signalk__depth_state"
       ],
-      "observed": [
-        "mcp__signalk__read_sensor"
-      ],
+      "observed": [],
       "match": false,
-      "dt_total": 18.723,
-      "is_error": false
+      "dt_total": 17.758,
+      "is_error": true
     },
     {
       "id": "battery",
@@ -25,9 +23,11 @@
       "expected": [
         "mcp__signalk__battery_state"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 7.427,
+      "observed": [
+        "mcp__signalk__battery_state"
+      ],
+      "match": true,
+      "dt_total": 7.385,
       "is_error": false
     },
     {
@@ -40,7 +40,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 7.498,
+      "dt_total": 7.244,
       "is_error": false
     },
     {
@@ -49,26 +49,22 @@
       "expected": [
         "mcp__weather__get_marine_forecast"
       ],
-      "observed": [
-        "mcp__signalk__read_sensor",
-        "mcp__weather__get_marine_forecast"
-      ],
-      "match": true,
-      "dt_total": 33.962,
+      "observed": [],
+      "match": false,
+      "dt_total": 11.808,
       "is_error": false
     },
     {
       "id": "current-boundary",
       "category": "navigator",
       "expected": [
-        "mcp__currents__get_tidal_gate"
+        "mcp__currents__get_gate_current"
       ],
       "observed": [
-        "mcp__signalk__read_sensor",
-        "mcp__currents__get_passage_gates"
+        "mcp__currents__get_gate_current"
       ],
-      "match": false,
-      "dt_total": 10.872,
+      "match": true,
+      "dt_total": 9.028,
       "is_error": false
     },
     {
@@ -79,16 +75,11 @@
       ],
       "observed": [
         "mcp__signalk__read_sensor",
-        "get_local_time",
-        "find_anchorages_near",
-        "mcp__weather__get_marine_forecast",
-        "pilotbook__search_anchorages",
-        "pilotbook--search-anchorages",
         "mcp__pilotbook__find_anchorages_near"
       ],
-      "match": false,
-      "dt_total": 151.98,
-      "is_error": true
+      "match": true,
+      "dt_total": 14.301,
+      "is_error": false
     },
     {
       "id": "safe-to-anchor",
@@ -99,11 +90,11 @@
       ],
       "observed": [
         "mcp__signalk__read_sensor",
-        "mcp__weather__get_marine_forecast",
-        "mcp__pilotbook__find_anchorages_near"
+        "mcp__pilotbook__find_anchorages_near",
+        "mcp__weather__get_marine_forecast"
       ],
       "match": true,
-      "dt_total": 24.726,
+      "dt_total": 40.425,
       "is_error": false
     },
     {
@@ -113,11 +104,10 @@
         "mcp__signalk__get_active_alarms"
       ],
       "observed": [
-        "mcp__signalk__get_active_alarms",
-        "mcp__signalk__battery_state"
+        "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 8.839,
+      "dt_total": 7.853,
       "is_error": false
     }
   ]
