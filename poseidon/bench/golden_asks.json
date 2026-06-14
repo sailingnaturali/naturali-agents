@@ -52,7 +52,7 @@
     "id": "explain-alarm",
     "category": "delegated",
     "prompt": "What does the low house battery alarm mean and what should I do?",
-    "expected_tools": ["mcp__signalk__get_active_alarms"],
+    "expected_tools": ["Agent"],
     "multi_tool": false
   }
 ]

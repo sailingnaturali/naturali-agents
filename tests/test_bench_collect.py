@@ -28,6 +28,11 @@ class FakeResult:
     usage: dict | None = None
 
 
+@dataclass
+class FakeTaskProgress:
+    last_tool_name: str
+
+
 def test_collects_tool_names_and_inputs_in_order():
     messages = [
         FakeAssistant(content=[FakeToolUse(name="mcp__signalk__depth_state", input={"x": 1})]),
@@ -78,3 +83,43 @@ def test_empty_messages_returns_default_observation():
     assert obs.text == ""
     assert obs.is_error is False
     assert obs.usage is None
+
+
+def test_captures_subagent_tool_from_task_progress():
+    messages = [
+        FakeTaskProgress(last_tool_name="mcp__signalk__get_active_alarms"),
+        FakeResult(is_error=False),
+    ]
+    obs = collect_turn(messages)
+    assert obs.tools == ["mcp__signalk__get_active_alarms"]
+
+
+def test_dedups_task_progress_and_tool_use():
+    messages = [
+        FakeTaskProgress(last_tool_name="X"),
+        FakeAssistant(content=[FakeToolUse(name="X", input={"a": 1})]),
+        FakeResult(is_error=False),
+    ]
+    obs = collect_turn(messages)
+    assert obs.tools == ["X"]
+    assert obs.tool_inputs == [{"a": 1}]  # real input preferred, position kept
+
+
+def test_agent_wrapper_and_subagent_tool_both_present():
+    messages = [
+        FakeAssistant(content=[FakeToolUse(name="Agent")]),
+        FakeTaskProgress(last_tool_name="mcp__signalk__battery_state"),
+        FakeResult(is_error=False),
+    ]
+    obs = collect_turn(messages)
+    assert obs.tools == ["Agent", "mcp__signalk__battery_state"]
+
+
+def test_dedups_repeated_task_progress_same_tool():
+    messages = [
+        FakeTaskProgress(last_tool_name="mcp__signalk__battery_state"),
+        FakeTaskProgress(last_tool_name="mcp__signalk__battery_state"),
+        FakeResult(is_error=False),
+    ]
+    obs = collect_turn(messages)
+    assert obs.tools == ["mcp__signalk__battery_state"]
