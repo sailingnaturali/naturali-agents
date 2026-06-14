@@ -47,12 +47,12 @@ def test_resolve_vessel_name_falls_back_when_profiles_missing(tmp_path, monkeypa
 def test_modernize_tool_names_maps_hermes_servers():
     src = ("call `mcp_signalk_read_sensor(path)` then "
            "`mcp_vessel_knowledge_explain_notification(path, state)`; "
-           "gates via `mcp_tide_get_passage_gates`; the `mcp_signalk_*` tools; "
+           "gates via `mcp_tide_plan_passage`; the `mcp_signalk_*` tools; "
            "log with `mcp_logbook_mark_moment(text)`")
     out = prompts._modernize_tool_names(src)
     assert "mcp__signalk__read_sensor" in out
     assert "mcp__vessel-knowledge__explain_notification" in out
-    assert "mcp__currents__get_passage_gates" in out
+    assert "mcp__currents__plan_passage" in out
     assert "mcp__signalk__*" in out          # wildcard prefix form too
     assert "mcp__logbook__mark_moment" in out
     assert "mcp_signalk_" not in out and "mcp_vessel_knowledge_" not in out
@@ -69,7 +69,7 @@ def test_engineer_prompt_tool_names_modernized():
 
 def test_crew_prompt_tool_names_modernized():
     text = prompts.crew_system_prompt()
-    assert "mcp__currents__get_passage_gates" in text
+    assert "mcp__currents__plan_passage" in text
     assert "mcp__weather__get_marine_forecast" in text
     for stale in ("mcp_tide_", "mcp_signalk_", "mcp_weather_",
                   "mcp_pilotbook_", "mcp_logbook_"):

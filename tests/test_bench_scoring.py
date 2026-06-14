@@ -45,10 +45,10 @@ def test_score_ask_missing_tool_fails():
 
 
 def test_score_ask_arg_subset_checked_when_present():
-    a = _ask("g", ["mcp__currents__get_tidal_gate"], args={"mcp__currents__get_tidal_gate": {"gate": "boundary_pass"}})
-    ok = score_ask(a, observed_tools=["mcp__currents__get_tidal_gate"],
+    a = _ask("g", ["mcp__currents__get_gate_current"], args={"mcp__currents__get_gate_current": {"gate": "boundary_pass"}})
+    ok = score_ask(a, observed_tools=["mcp__currents__get_gate_current"],
                    observed_args=[{"gate": "boundary_pass", "extra": 1}])
-    bad = score_ask(a, observed_tools=["mcp__currents__get_tidal_gate"],
+    bad = score_ask(a, observed_tools=["mcp__currents__get_gate_current"],
                     observed_args=[{"gate": "active_pass"}])
     assert ok is True and bad is False
 
