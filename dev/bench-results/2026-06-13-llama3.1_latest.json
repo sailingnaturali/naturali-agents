@@ -1,0 +1,115 @@
+{
+  "model": "llama3.1:latest",
+  "n": 8,
+  "correctness": 0.625,
+  "error_rate": 0.0,
+  "latency_p50": 10.078,
+  "latency_p95": 15.813,
+  "per_ask": [
+    {
+      "id": "depth",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [
+        "mcp__signalk__depth_state"
+      ],
+      "match": true,
+      "dt_total": 14.494,
+      "is_error": false
+    },
+    {
+      "id": "battery",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__battery_state"
+      ],
+      "observed": [
+        "mcp__signalk__battery_state"
+      ],
+      "match": true,
+      "dt_total": 9.198,
+      "is_error": false
+    },
+    {
+      "id": "alarms",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "match": true,
+      "dt_total": 9.655,
+      "is_error": false
+    },
+    {
+      "id": "wind-forecast",
+      "category": "navigator",
+      "expected": [
+        "mcp__weather__get_marine_forecast"
+      ],
+      "observed": [
+        "mcp__weather__get_marine_forecast"
+      ],
+      "match": true,
+      "dt_total": 10.132,
+      "is_error": false
+    },
+    {
+      "id": "current-boundary",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_tidal_gate"
+      ],
+      "observed": [
+        "mcp__currents__list_gates"
+      ],
+      "match": false,
+      "dt_total": 10.023,
+      "is_error": false
+    },
+    {
+      "id": "anchorage-near",
+      "category": "navigator",
+      "expected": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "observed": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "match": true,
+      "dt_total": 10.619,
+      "is_error": false
+    },
+    {
+      "id": "safe-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__find_anchorages_near",
+        "mcp__weather__get_marine_forecast"
+      ],
+      "observed": [
+        "mcp__weather__get_marine_forecast"
+      ],
+      "match": false,
+      "dt_total": 16.524,
+      "is_error": false
+    },
+    {
+      "id": "explain-alarm",
+      "category": "delegated",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__vessel-knowledge__explain_notification"
+      ],
+      "match": false,
+      "dt_total": 2.679,
+      "is_error": false
+    }
+  ]
+}
