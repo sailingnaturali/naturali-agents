@@ -1,10 +1,10 @@
 {
   "model": "llama3.1:latest",
   "n": 11,
-  "correctness": 0.7272727272727273,
+  "correctness": 0.6363636363636364,
   "error_rate": 0.0,
-  "latency_p50": 10.692,
-  "latency_p95": 16.314,
+  "latency_p50": 12.239,
+  "latency_p95": 15.576,
   "per_ask": [
     {
       "id": "depth",
@@ -12,9 +12,11 @@
       "expected": [
         "mcp__signalk__depth_state"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 14.29,
+      "observed": [
+        "mcp__signalk__depth_state"
+      ],
+      "match": true,
+      "dt_total": 16.09,
       "is_error": false
     },
     {
@@ -27,7 +29,7 @@
         "mcp__signalk__battery_state"
       ],
       "match": true,
-      "dt_total": 1.352,
+      "dt_total": 11.135,
       "is_error": false
     },
     {
@@ -40,7 +42,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 10.875,
+      "dt_total": 11.611,
       "is_error": false
     },
     {
@@ -50,10 +52,10 @@
         "mcp__signalk__read_sensor"
       ],
       "observed": [
-        "mcp__signalk__read_sensor"
+        "mcp__signalk__get_active_alarms"
       ],
-      "match": true,
-      "dt_total": 10.07,
+      "match": false,
+      "dt_total": 15.062,
       "is_error": false
     },
     {
@@ -63,10 +65,10 @@
         "mcp__weather__get_marine_forecast"
       ],
       "observed": [
-        "mcp__weather__get_marine_forecast"
+        "mcp__weather__get_marine_forecast_premium"
       ],
-      "match": true,
-      "dt_total": 18.337,
+      "match": false,
+      "dt_total": 11.071,
       "is_error": false
     },
     {
@@ -79,20 +81,20 @@
         "mcp__currents__get_gate_current"
       ],
       "match": true,
-      "dt_total": 2.425,
+      "dt_total": 11.462,
       "is_error": false
     },
     {
       "id": "currents-nearby",
       "category": "navigator",
       "expected": [
-        "mcp__currents__get_gate_current"
+        "mcp__currents__currents_near"
       ],
       "observed": [
-        "mcp__currents__get_gate_current"
+        "mcp__currents__currents_near"
       ],
       "match": true,
-      "dt_total": 10.497,
+      "dt_total": 12.269,
       "is_error": false
     },
     {
@@ -105,7 +107,7 @@
         "mcp__currents__get_tide_heights"
       ],
       "match": true,
-      "dt_total": 11.389,
+      "dt_total": 12.239,
       "is_error": false
     },
     {
@@ -118,7 +120,7 @@
         "mcp__pilotbook__assess_anchorage"
       ],
       "match": false,
-      "dt_total": 10.577,
+      "dt_total": 13.446,
       "is_error": false
     },
     {
@@ -131,7 +133,7 @@
         "mcp__pilotbook__assess_anchorage"
       ],
       "match": true,
-      "dt_total": 12.417,
+      "dt_total": 13.175,
       "is_error": false
     },
     {
@@ -144,7 +146,7 @@
         "mcp__vessel-knowledge__explain_notification"
       ],
       "match": false,
-      "dt_total": 10.692,
+      "dt_total": 11.93,
       "is_error": false
     }
   ]

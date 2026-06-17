@@ -3,8 +3,8 @@
   "n": 11,
   "correctness": 0.45454545454545453,
   "error_rate": 0.0,
-  "latency_p50": 1.586,
-  "latency_p95": 6.818,
+  "latency_p50": 0.836,
+  "latency_p95": 9.773,
   "per_ask": [
     {
       "id": "depth",
@@ -16,7 +16,7 @@
         "mcp__signalk__depth_state"
       ],
       "match": true,
-      "dt_total": 9.316,
+      "dt_total": 9.893,
       "is_error": false
     },
     {
@@ -29,7 +29,7 @@
         "mcp__signalk__battery_state"
       ],
       "match": true,
-      "dt_total": 1.586,
+      "dt_total": 1.288,
       "is_error": false
     },
     {
@@ -42,7 +42,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 3.093,
+      "dt_total": 3.395,
       "is_error": false
     },
     {
@@ -51,11 +51,9 @@
       "expected": [
         "mcp__signalk__read_sensor"
       ],
-      "observed": [
-        "mcp__signalk__read_sensor"
-      ],
-      "match": true,
-      "dt_total": 1.432,
+      "observed": [],
+      "match": false,
+      "dt_total": 0.656,
       "is_error": false
     },
     {
@@ -66,7 +64,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 0.78,
+      "dt_total": 0.836,
       "is_error": false
     },
     {
@@ -77,18 +75,18 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 2.424,
+      "dt_total": 0.658,
       "is_error": false
     },
     {
       "id": "currents-nearby",
       "category": "navigator",
       "expected": [
-        "mcp__currents__get_gate_current"
+        "mcp__currents__currents_near"
       ],
       "observed": [],
       "match": false,
-      "dt_total": 0.759,
+      "dt_total": 0.659,
       "is_error": false
     },
     {
@@ -99,7 +97,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 1.375,
+      "dt_total": 0.468,
       "is_error": false
     },
     {
@@ -108,11 +106,9 @@
       "expected": [
         "mcp__pilotbook__find_anchorages_near"
       ],
-      "observed": [
-        "mcp__pilotbook__assess_anchorage"
-      ],
+      "observed": [],
       "match": false,
-      "dt_total": 4.32,
+      "dt_total": 0.832,
       "is_error": false
     },
     {
@@ -125,7 +121,7 @@
         "mcp__pilotbook__assess_anchorage"
       ],
       "match": true,
-      "dt_total": 1.934,
+      "dt_total": 9.654,
       "is_error": false
     },
     {
@@ -134,9 +130,11 @@
       "expected": [
         "mcp__signalk__get_active_alarms"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 1.562,
+      "observed": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "match": true,
+      "dt_total": 4.485,
       "is_error": false
     }
   ]
