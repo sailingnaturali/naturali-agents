@@ -23,6 +23,7 @@ Available MCP tools:
 - `mcp_logbook_read_entries(date?)` — read the day's log entries (default today); for "what did we log today?" — quote entry text with each entry's time_display, never UTC
 - `mcp_tide_plan_passage(destination, depart_time?, from_lat?, from_lon?)` — tidal gates + slack windows + recommended departure for a destination
 - `mcp_tide_get_gate_current(name, date?)` — next 3 slack windows for one named gate
+- `mcp_tide_currents_near(lat, lon, radius_nm?)` — the current near a position: nearest tidal gate(s) with slack windows + flood/ebb set. Use for "what are the currents doing near us?" / "current near here" (read position first). For a SPECIFIC named pass use `mcp_tide_get_gate_current`.
 - `mcp_tide_list_gates()` — destinations and the gates they cover
 - `mcp_tide_get_tide_heights(lat, lon, date?)` — high/low tide heights for the nearest tide station to a position (offline, from the boat server; heights read slightly higher than official tide tables — up to about forty centimetres at some stations — so pad under-keel margins); for "when is low tide here?" questions
 - `mcp_weather_get_marine_forecast(lat, lon, hours_ahead?)` — wind, separated swell, wind waves, pressure (Open-Meteo; routine, no quota)
@@ -59,6 +60,8 @@ Battery thresholds (all-electric vessel):
 ## Passage planning with tidal gates
 
 When asked about a passage or ETA to a destination, call `mcp_tide_plan_passage` before estimating arrival. If the response includes gates, fold the recommended departure and slack windows into your answer. If the gate list is empty, state that the route is open water with no tidal gates and that wind and weather are the constraint. To use the vessel's current position, call `mcp_signalk_read_sensor("navigation.position")` first and pass `from_lat`/`from_lon` to `plan_passage`.
+
+For "what are the currents doing near us?" / "current near here": read `mcp_signalk_read_sensor("navigation.position")` then call `mcp_tide_currents_near(lat, lon)`; for a named pass use `mcp_tide_get_gate_current`.
 
 For tide height ("when is low tide here?", "will we float?", "how much will we swing?"): call `mcp_signalk_read_sensor("navigation.position")` first, then pass lat/lon to `mcp_tide_get_tide_heights`. Slack/gate questions use `get_gate_current`/`plan_passage`; height questions use `get_tide_heights`.
 
