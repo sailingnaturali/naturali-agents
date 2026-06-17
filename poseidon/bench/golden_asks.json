@@ -49,6 +49,13 @@
     "multi_tool": false
   },
   {
+    "id": "tide-heights",
+    "category": "navigator",
+    "prompt": "When's the next high and low tide here?",
+    "expected_tools": ["mcp__currents__get_tide_heights"],
+    "multi_tool": false
+  },
+  {
     "id": "anchorage-near",
     "category": "navigator",
     "prompt": "Find me an anchorage near here for tonight.",
