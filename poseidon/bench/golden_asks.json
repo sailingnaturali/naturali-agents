@@ -21,6 +21,13 @@
     "multi_tool": false
   },
   {
+    "id": "black-water-tank",
+    "category": "engineer-direct",
+    "prompt": "How full is the black water tank?",
+    "expected_tools": ["mcp__signalk__read_sensor"],
+    "multi_tool": false
+  },
+  {
     "id": "wind-forecast",
     "category": "navigator",
     "prompt": "What's the wind forecast for tonight?",
@@ -31,6 +38,13 @@
     "id": "current-boundary",
     "category": "navigator",
     "prompt": "What's the current doing at Boundary Pass?",
+    "expected_tools": ["mcp__currents__get_gate_current"],
+    "multi_tool": false
+  },
+  {
+    "id": "currents-nearby",
+    "category": "navigator",
+    "prompt": "What are the currents doing near us right now?",
     "expected_tools": ["mcp__currents__get_gate_current"],
     "multi_tool": false
   },
