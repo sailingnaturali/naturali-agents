@@ -45,7 +45,8 @@
     "id": "currents-nearby",
     "category": "navigator",
     "prompt": "What are the currents doing near us right now?",
-    "expected_tools": ["mcp__currents__get_gate_current"],
+    "expected_tools": ["mcp__currents__currents_near"],
+    "expected_tools_flat": ["mcp__currents__currents_near"],
     "multi_tool": false
   },
   {
