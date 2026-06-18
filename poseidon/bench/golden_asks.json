@@ -59,7 +59,7 @@
   {
     "id": "anchorage-near",
     "category": "navigator",
-    "prompt": "Find me an anchorage near here for tonight.",
+    "prompt": "What anchorages are within a few miles of us?",
     "expected_tools": ["mcp__pilotbook__find_anchorages_near"],
     "multi_tool": false
   },
