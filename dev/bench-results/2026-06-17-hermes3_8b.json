@@ -1,10 +1,10 @@
 {
   "model": "hermes3:8b",
   "n": 11,
-  "correctness": 0.45454545454545453,
+  "correctness": 0.18181818181818182,
   "error_rate": 0.0,
-  "latency_p50": 0.836,
-  "latency_p95": 9.773,
+  "latency_p50": 0.787,
+  "latency_p95": 6.88,
   "per_ask": [
     {
       "id": "depth",
@@ -12,11 +12,9 @@
       "expected": [
         "mcp__signalk__depth_state"
       ],
-      "observed": [
-        "mcp__signalk__depth_state"
-      ],
-      "match": true,
-      "dt_total": 9.893,
+      "observed": [],
+      "match": false,
+      "dt_total": 8.647,
       "is_error": false
     },
     {
@@ -25,11 +23,9 @@
       "expected": [
         "mcp__signalk__battery_state"
       ],
-      "observed": [
-        "mcp__signalk__battery_state"
-      ],
-      "match": true,
-      "dt_total": 1.288,
+      "observed": [],
+      "match": false,
+      "dt_total": 1.444,
       "is_error": false
     },
     {
@@ -42,7 +38,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 3.395,
+      "dt_total": 2.267,
       "is_error": false
     },
     {
@@ -53,7 +49,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 0.656,
+      "dt_total": 0.617,
       "is_error": false
     },
     {
@@ -64,7 +60,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 0.836,
+      "dt_total": 0.787,
       "is_error": false
     },
     {
@@ -75,7 +71,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 0.658,
+      "dt_total": 0.649,
       "is_error": false
     },
     {
@@ -86,7 +82,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 0.659,
+      "dt_total": 0.665,
       "is_error": false
     },
     {
@@ -97,7 +93,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 0.468,
+      "dt_total": 0.684,
       "is_error": false
     },
     {
@@ -108,7 +104,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 0.832,
+      "dt_total": 0.658,
       "is_error": false
     },
     {
@@ -121,7 +117,7 @@
         "mcp__pilotbook__assess_anchorage"
       ],
       "match": true,
-      "dt_total": 9.654,
+      "dt_total": 5.113,
       "is_error": false
     },
     {
@@ -131,10 +127,10 @@
         "mcp__signalk__get_active_alarms"
       ],
       "observed": [
-        "mcp__signalk__get_active_alarms"
+        "mcp__vessel-knowledge__check_reading"
       ],
-      "match": true,
-      "dt_total": 4.485,
+      "match": false,
+      "dt_total": 2.716,
       "is_error": false
     }
   ]

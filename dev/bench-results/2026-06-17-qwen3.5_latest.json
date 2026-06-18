@@ -1,10 +1,10 @@
 {
   "model": "qwen3.5:latest",
   "n": 11,
-  "correctness": 0.9090909090909091,
+  "correctness": 0.8181818181818182,
   "error_rate": 0.0,
-  "latency_p50": 11.656,
-  "latency_p95": 21.538,
+  "latency_p50": 10.979,
+  "latency_p95": 20.833,
   "per_ask": [
     {
       "id": "depth",
@@ -16,7 +16,7 @@
         "mcp__signalk__depth_state"
       ],
       "match": true,
-      "dt_total": 20.054,
+      "dt_total": 20.739,
       "is_error": false
     },
     {
@@ -29,7 +29,7 @@
         "mcp__signalk__battery_state"
       ],
       "match": true,
-      "dt_total": 6.861,
+      "dt_total": 6.98,
       "is_error": false
     },
     {
@@ -42,7 +42,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 8.673,
+      "dt_total": 7.66,
       "is_error": false
     },
     {
@@ -52,12 +52,10 @@
         "mcp__signalk__read_sensor"
       ],
       "observed": [
-        "mcp__signalk__get_active_alarms",
-        "mcp__vessel-knowledge__list_equipment",
-        "mcp__signalk__read_sensor"
+        "mcp__signalk__list_paths"
       ],
-      "match": true,
-      "dt_total": 11.456,
+      "match": false,
+      "dt_total": 20.927,
       "is_error": false
     },
     {
@@ -68,10 +66,11 @@
       ],
       "observed": [
         "mcp__signalk__read_sensor",
-        "mcp__weather__get_marine_forecast"
+        "mcp__weather__get_marine_forecast",
+        "mcp__get_local_time"
       ],
       "match": true,
-      "dt_total": 23.022,
+      "dt_total": 20.105,
       "is_error": false
     },
     {
@@ -84,7 +83,7 @@
         "mcp__currents__get_gate_current"
       ],
       "match": true,
-      "dt_total": 7.127,
+      "dt_total": 8.63,
       "is_error": false
     },
     {
@@ -98,7 +97,7 @@
         "mcp__currents__currents_near"
       ],
       "match": true,
-      "dt_total": 10.715,
+      "dt_total": 10.467,
       "is_error": false
     },
     {
@@ -112,7 +111,7 @@
         "mcp__currents__get_tide_heights"
       ],
       "match": true,
-      "dt_total": 11.656,
+      "dt_total": 18.231,
       "is_error": false
     },
     {
@@ -123,10 +122,10 @@
       ],
       "observed": [
         "mcp__signalk__read_sensor",
-        "mcp__pilotbook__assess_anchorage"
+        "mcp__pilotbook__find_anchorages_near"
       ],
-      "match": false,
-      "dt_total": 19.66,
+      "match": true,
+      "dt_total": 15.442,
       "is_error": false
     },
     {
@@ -136,11 +135,10 @@
         "mcp__pilotbook__assess_anchorage"
       ],
       "observed": [
-        "mcp__signalk__read_sensor",
-        "mcp__pilotbook__assess_anchorage"
+        "mcp__signalk__get_local_time"
       ],
-      "match": true,
-      "dt_total": 12.228,
+      "match": false,
+      "dt_total": 10.979,
       "is_error": false
     },
     {
@@ -150,12 +148,10 @@
         "mcp__signalk__get_active_alarms"
       ],
       "observed": [
-        "mcp__signalk__get_active_alarms",
-        "mcp__vessel-knowledge__find_equipment",
-        "mcp__signalk__get_local_time"
+        "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 12.019,
+      "dt_total": 8.655,
       "is_error": false
     }
   ]
