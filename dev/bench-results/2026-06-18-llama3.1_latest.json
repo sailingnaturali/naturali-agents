@@ -1,0 +1,166 @@
+{
+  "model": "llama3.1:latest",
+  "n": 12,
+  "correctness": 0.75,
+  "error_rate": 0.0,
+  "latency_p50": 12.844,
+  "latency_p95": 16.811,
+  "per_ask": [
+    {
+      "id": "depth",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [
+        "mcp__signalk__depth_state"
+      ],
+      "match": true,
+      "dt_total": 16.674,
+      "is_error": false
+    },
+    {
+      "id": "battery",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__battery_state"
+      ],
+      "observed": [
+        "mcp__signalk__battery_state"
+      ],
+      "match": true,
+      "dt_total": 11.577,
+      "is_error": false
+    },
+    {
+      "id": "alarms",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "match": true,
+      "dt_total": 11.946,
+      "is_error": false
+    },
+    {
+      "id": "black-water-tank",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "match": false,
+      "dt_total": 12.987,
+      "is_error": false
+    },
+    {
+      "id": "wind-forecast",
+      "category": "navigator",
+      "expected": [
+        "mcp__weather__get_marine_forecast"
+      ],
+      "observed": [
+        "mcp__weather__get_marine_forecast_premium"
+      ],
+      "match": false,
+      "dt_total": 11.807,
+      "is_error": false
+    },
+    {
+      "id": "current-boundary",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_gate_current"
+      ],
+      "observed": [
+        "mcp__currents__get_gate_current"
+      ],
+      "match": true,
+      "dt_total": 12.701,
+      "is_error": false
+    },
+    {
+      "id": "currents-nearby",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__currents_near"
+      ],
+      "observed": [
+        "mcp__currents__currents_near"
+      ],
+      "match": true,
+      "dt_total": 11.615,
+      "is_error": false
+    },
+    {
+      "id": "tide-heights",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_tide_heights"
+      ],
+      "observed": [
+        "mcp__currents__get_tide_heights"
+      ],
+      "match": true,
+      "dt_total": 12.06,
+      "is_error": false
+    },
+    {
+      "id": "anchorage-near",
+      "category": "navigator",
+      "expected": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "observed": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "match": true,
+      "dt_total": 16.978,
+      "is_error": false
+    },
+    {
+      "id": "safe-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "match": true,
+      "dt_total": 15.483,
+      "is_error": false
+    },
+    {
+      "id": "where-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "match": true,
+      "dt_total": 14.214,
+      "is_error": false
+    },
+    {
+      "id": "explain-alarm",
+      "category": "delegated",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__vessel-knowledge__explain_notification"
+      ],
+      "match": false,
+      "dt_total": 14.693,
+      "is_error": false
+    }
+  ]
+}

@@ -1,0 +1,176 @@
+{
+  "model": "qwen3.6:latest",
+  "n": 12,
+  "correctness": 1.0,
+  "error_rate": 0.0,
+  "latency_p50": 11.356,
+  "latency_p95": 27.319,
+  "per_ask": [
+    {
+      "id": "depth",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [
+        "mcp__signalk__depth_state"
+      ],
+      "match": true,
+      "dt_total": 11.988,
+      "is_error": false
+    },
+    {
+      "id": "battery",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__battery_state"
+      ],
+      "observed": [
+        "mcp__signalk__battery_state"
+      ],
+      "match": true,
+      "dt_total": 10.723,
+      "is_error": false
+    },
+    {
+      "id": "alarms",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "match": true,
+      "dt_total": 6.416,
+      "is_error": false
+    },
+    {
+      "id": "black-water-tank",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "mcp__signalk__list_paths",
+        "mcp__signalk__read_sensor"
+      ],
+      "match": true,
+      "dt_total": 7.834,
+      "is_error": false
+    },
+    {
+      "id": "wind-forecast",
+      "category": "navigator",
+      "expected": [
+        "mcp__weather__get_marine_forecast"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__weather__get_marine_forecast"
+      ],
+      "match": true,
+      "dt_total": 20.387,
+      "is_error": false
+    },
+    {
+      "id": "current-boundary",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_gate_current"
+      ],
+      "observed": [
+        "mcp__currents__get_gate_current",
+        "mcp__signalk__get_local_time"
+      ],
+      "match": true,
+      "dt_total": 18.082,
+      "is_error": false
+    },
+    {
+      "id": "currents-nearby",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__currents_near"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__currents__currents_near",
+        "mcp__signalk__get_local_time"
+      ],
+      "match": true,
+      "dt_total": 33.368,
+      "is_error": false
+    },
+    {
+      "id": "tide-heights",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_tide_heights"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__currents__get_tide_heights"
+      ],
+      "match": true,
+      "dt_total": 10.036,
+      "is_error": false
+    },
+    {
+      "id": "anchorage-near",
+      "category": "navigator",
+      "expected": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "match": true,
+      "dt_total": 10.671,
+      "is_error": false
+    },
+    {
+      "id": "safe-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "match": true,
+      "dt_total": 22.369,
+      "is_error": false
+    },
+    {
+      "id": "where-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor",
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "match": true,
+      "dt_total": 14.158,
+      "is_error": false
+    },
+    {
+      "id": "explain-alarm",
+      "category": "delegated",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__signalk__get_active_alarms",
+        "mcp__signalk__battery_state"
+      ],
+      "match": true,
+      "dt_total": 10.205,
+      "is_error": false
+    }
+  ]
+}
