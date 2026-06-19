@@ -72,6 +72,14 @@
     "multi_tool": true
   },
   {
+    "id": "where-to-anchor",
+    "category": "navigator-multi",
+    "prompt": "Where should we anchor tonight?",
+    "expected_tools": ["mcp__pilotbook__assess_anchorage"],
+    "expected_tools_flat": ["mcp__pilotbook__assess_anchorage"],
+    "multi_tool": true
+  },
+  {
     "id": "explain-alarm",
     "category": "delegated",
     "prompt": "What does the low house battery alarm mean and what should I do?",
