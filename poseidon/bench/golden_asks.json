@@ -80,6 +80,14 @@
     "multi_tool": true
   },
   {
+    "id": "can-we-beach",
+    "category": "navigator-multi",
+    "prompt": "Can we beach here to clean the hull?",
+    "expected_tools": ["mcp__currents__get_tide_heights", "mcp__signalk__depth_state"],
+    "expected_tools_flat": ["mcp__currents__get_tide_heights", "mcp__signalk__depth_state"],
+    "multi_tool": true
+  },
+  {
     "id": "explain-alarm",
     "category": "delegated",
     "prompt": "What does the low house battery alarm mean and what should I do?",
