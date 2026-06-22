@@ -31,6 +31,10 @@ from poseidon import config, prompts
 NAVIGATOR_TOOLS = [
     "mcp__signalk", "mcp__weather", "mcp__currents", "mcp__pilotbook",
     "mcp__colregs", "mcp__club-moorage",
+    # Persistent memory (Mnemosyne, ADR 0003) — scoped to read/write + crew-fact
+    # triples rather than the full 28-tool surface, to keep the prompt lean.
+    "mcp__memory__mnemosyne_recall", "mcp__memory__mnemosyne_remember",
+    "mcp__memory__mnemosyne_triple_query", "mcp__memory__mnemosyne_triple_add",
     "Agent",  # delegation to Engineer/Logbook subagents
 ]
 ENGINEER_TOOLS = ["mcp__vessel-knowledge", "mcp__signalk"]

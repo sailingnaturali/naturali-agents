@@ -58,5 +58,14 @@
     "command": "~/.local/bin/uv",
     "args": ["run", "--project", "~/src/sailingnaturali/club-moorage-mcp", "club-moorage-mcp"],
     "env": {}
+  },
+  "memory": {
+    "type": "stdio",
+    "command": "~/.local/bin/mnemosyne",
+    "args": ["mcp"],
+    "env": {
+      "MNEMOSYNE_DATA_DIR": "~/.naturali/mnemosyne/data",
+      "MNEMOSYNE_LLM_ENABLED": "false"
+    }
   }
 }
