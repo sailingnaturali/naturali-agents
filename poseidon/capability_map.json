@@ -1,0 +1,14 @@
+[
+  {"agent": "navigator", "domain": "anchorages", "text": "The Navigator handles where to anchor for the night and assessing whether an anchorage is safe, using the pilot book, currents, and weather."},
+  {"agent": "navigator", "domain": "currents", "text": "The Navigator handles tidal currents at passes and gates, slack timing, and what the current is doing nearby."},
+  {"agent": "navigator", "domain": "tides", "text": "The Navigator handles tide heights and the next high and low water."},
+  {"agent": "navigator", "domain": "weather", "text": "The Navigator handles wind and marine weather forecasts, buoy observations, and offshore passage weather."},
+  {"agent": "navigator", "domain": "moorage", "text": "The Navigator handles yacht club outstations and moorage availability for overnight stops."},
+  {"agent": "navigator", "domain": "colregs", "text": "The Navigator handles the rules of the road, right of way, and required sound and light signals."},
+  {"agent": "engineer", "domain": "battery", "text": "The Engineer handles battery state of charge, house and start banks, and electrical questions."},
+  {"agent": "engineer", "domain": "tanks", "text": "The Engineer handles fuel, water, holding and black water tank levels."},
+  {"agent": "engineer", "domain": "depth", "text": "The Engineer handles depth under the keel and sounder readings."},
+  {"agent": "engineer", "domain": "alarms", "text": "The Engineer handles active alarms, what an alarm means, and what to do about it, using vessel equipment knowledge."},
+  {"agent": "engineer", "domain": "equipment", "text": "The Engineer handles questions about specific onboard equipment: make, model, service intervals, and how a device works."},
+  {"agent": "logbook", "domain": "log_entries", "text": "The Logbook keeper records notable moments and answers questions about past log entries and the sea day."}
+]
