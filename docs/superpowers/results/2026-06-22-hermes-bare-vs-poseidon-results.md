@@ -54,8 +54,10 @@ The bench scores **tool selection, not tool success** (`expected_tools ⊆ obser
 ### The fix
 `signalk-mcp` `SignalKClient` now resolves a `.local` host to its IPv4 via the system resolver at construction and connects to the IP (commit `409c596`, TDD; non-`.local` hosts and resolution failures unchanged). Result: position reads succeed in ~10 ms, and Poseidon's score went **0.38 → 0.85** with signalk asks dropping from ~17 s to ~4 s.
 
-### Production impact
-Poseidon's daemon runs on **this Mac Studio** against `naturalaspi.local`. Pre-fix, the live assistant would have **failed every position-dependent query** (currents, tides, anchorages, forecasts) — worth confirming the daily briefing wasn't silently degraded. The fix lands the moment the daemon respawns the (locally-sourced) `signalk-mcp`.
+### Production impact (verified)
+Poseidon's daemon runs on **this Mac Studio** against `naturalaspi.local`. Checked the logs:
+- **Daily briefing — unaffected.** `scripts/briefing.py` uses *sync* `httpx.get`, which resolves `.local` via the system resolver; today's 06:00 briefing completed and its position GET returned `200 OK`.
+- **Live voice queries — were at risk.** Those route through `signalk-mcp`'s *async* httpx, so position-dependent asks (currents/tides/anchorages/forecasts) would have ConnectTimeout'd. No such failed query appears in the recent log, but the path was broken. The fix lands the moment the daemon respawns the (locally-sourced) `signalk-mcp`.
 
 ## Per-ask head-to-head (post-fix)
 
