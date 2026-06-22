@@ -65,6 +65,7 @@
     "args": ["mcp"],
     "env": {
       "MNEMOSYNE_DATA_DIR": "~/.naturali/mnemosyne/data",
+      "MNEMOSYNE_VEC_TYPE": "float32",
       "MNEMOSYNE_LLM_ENABLED": "true",
       "OPENROUTER_BASE_URL": "http://localhost:11434/v1",
       "OPENROUTER_API_KEY": "ollama",
