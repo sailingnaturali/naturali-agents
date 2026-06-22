@@ -191,18 +191,44 @@ def _fetch_session_from_db(db_path: str, session_id: str) -> dict:
     return {"session_id": session_id, "messages": messages}
 
 
-def _latest_session_after(db_path: str, started_after: float) -> str | None:
-    """Return the session_id of the most-recently-started session after the given
-    Unix timestamp, or None if no such session exists."""
+def _all_session_ids(db_path: str) -> set[str]:
+    """Return the set of all session ids currently in state.db."""
     conn = sqlite3.connect(db_path)
     try:
-        row = conn.execute(
-            "SELECT id FROM sessions WHERE started_at > ? ORDER BY started_at DESC LIMIT 1",
-            (started_after,),
-        ).fetchone()
+        return {r[0] for r in conn.execute("SELECT id FROM sessions").fetchall()}
     finally:
         conn.close()
-    return row[0] if row else None
+
+
+def _fetch_sessions_merged(db_path: str, session_ids: list[str]) -> dict:
+    """Merge messages from multiple sessions into one session dict, ordered by
+    (started_at, message id). A single ``hermes -z`` invocation can spawn several
+    sessions (subagent/handoff/title sessions), so we union them all and let the
+    parser dedupe tools — relying on a single 'latest' session mis-attributes
+    tool calls under sequential load."""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        order = {sid: i for i, sid in enumerate(
+            sid for (sid,) in conn.execute(
+                "SELECT id FROM sessions ORDER BY started_at",
+            ).fetchall() if sid in set(session_ids)
+        )}
+        messages: list[dict] = []
+        for sid in sorted(session_ids, key=lambda s: order.get(s, 1 << 30)):
+            for row in conn.execute(
+                "SELECT * FROM messages WHERE session_id = ? ORDER BY id", (sid,),
+            ).fetchall():
+                msg = dict(row)
+                if msg.get("tool_calls") and isinstance(msg["tool_calls"], str):
+                    try:
+                        msg["tool_calls"] = json.loads(msg["tool_calls"])
+                    except json.JSONDecodeError:
+                        pass
+                messages.append(msg)
+    finally:
+        conn.close()
+    return {"session_id": ",".join(session_ids), "messages": messages}
 
 
 # ---------------------------------------------------------------------------
@@ -214,8 +240,8 @@ def _run_one_hermes(ask: Ask) -> AskResult:
     env = dict(os.environ)
     env["HERMES_HOME"] = HERMES_HOME
 
+    sessions_before = _all_session_ids(HERMES_DB)
     t0 = time.monotonic()
-    started_at_unix = time.time()
 
     try:
         proc = subprocess.run(
@@ -248,19 +274,19 @@ def _run_one_hermes(ask: Ask) -> AskResult:
             text=f"ERROR: {exc}",
         )
 
-    # Locate the session that was started for this ask.
-    session_id = _latest_session_after(HERMES_DB, started_at_unix)
-    if session_id is None:
+    # Attribute by set-difference: every session created during this invocation.
+    new_ids = list(_all_session_ids(HERMES_DB) - sessions_before)
+    if not new_ids:
         return AskResult(
             ask=ask,
             observed_tools=[],
             observed_args=[],
             dt_total=dt,
             is_error=True,
-            text="ERROR: could not find session in state.db",
+            text="ERROR: no new session in state.db for this ask",
         )
 
-    session = _fetch_session_from_db(HERMES_DB, session_id)
+    session = _fetch_sessions_merged(HERMES_DB, new_ids)
     tools, args, text = parse_hermes_session(session)
 
     # Prefer the subprocess stdout text if the DB text is empty (Hermes echoes
