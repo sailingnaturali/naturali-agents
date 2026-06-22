@@ -1,0 +1,168 @@
+{
+  "model": "claude-sonnet-4-6",
+  "n": 13,
+  "correctness": 0.3076923076923077,
+  "error_rate": 0.0,
+  "latency_p50": 8.458,
+  "latency_p95": 10.133,
+  "per_ask": [
+    {
+      "id": "depth",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [
+        "mcp__signalk__depth_state"
+      ],
+      "match": true,
+      "dt_total": 8.458,
+      "is_error": false
+    },
+    {
+      "id": "battery",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__battery_state"
+      ],
+      "observed": [
+        "mcp__signalk__battery_state"
+      ],
+      "match": true,
+      "dt_total": 9.611,
+      "is_error": false
+    },
+    {
+      "id": "alarms",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "match": true,
+      "dt_total": 8.493,
+      "is_error": false
+    },
+    {
+      "id": "black-water-tank",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 5.789,
+      "is_error": false
+    },
+    {
+      "id": "wind-forecast",
+      "category": "navigator",
+      "expected": [
+        "mcp__weather__get_marine_forecast"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor"
+      ],
+      "match": false,
+      "dt_total": 10.685,
+      "is_error": false
+    },
+    {
+      "id": "current-boundary",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_gate_current"
+      ],
+      "observed": [
+        "mcp__currents__get_gate_current"
+      ],
+      "match": true,
+      "dt_total": 9.344,
+      "is_error": false
+    },
+    {
+      "id": "currents-nearby",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__currents_near"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor"
+      ],
+      "match": false,
+      "dt_total": 9.178,
+      "is_error": false
+    },
+    {
+      "id": "tide-heights",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_tide_heights"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor"
+      ],
+      "match": false,
+      "dt_total": 9.764,
+      "is_error": false
+    },
+    {
+      "id": "anchorage-near",
+      "category": "navigator",
+      "expected": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.642,
+      "is_error": false
+    },
+    {
+      "id": "safe-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.572,
+      "is_error": false
+    },
+    {
+      "id": "where-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 7.378,
+      "is_error": false
+    },
+    {
+      "id": "can-we-beach",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__currents__get_tide_heights",
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.018,
+      "is_error": false
+    },
+    {
+      "id": "explain-alarm",
+      "category": "delegated",
+      "expected": [
+        "Agent"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 1.226,
+      "is_error": false
+    }
+  ]
+}
