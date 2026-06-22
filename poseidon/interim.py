@@ -7,6 +7,8 @@ from __future__ import annotations
 
 STILL_WORKING_AFTER_S = 20.0
 STILL_WORKING_PHRASE = "Still working on it."
+RECONSIDER_PHRASE = "Let me reconsider that."
+NO_HELP_PHRASE = "I can't help with that one yet."
 _GENERIC = object()
 
 # Keyed by MCP server prefix ("mcp__<server>") or exact tool name.

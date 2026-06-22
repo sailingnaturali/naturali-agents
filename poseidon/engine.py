@@ -16,7 +16,7 @@ from typing import Awaitable, Callable
 
 from claude_agent_sdk import AssistantMessage, ResultMessage, TextBlock, ToolUseBlock
 
-from poseidon import interim as interim_mod
+from poseidon import fallback, interim as interim_mod
 from poseidon.reset import ResetPolicy
 
 log = logging.getLogger(__name__)
@@ -32,7 +32,8 @@ class TurnResult:
 
 class CrewChannel:
     def __init__(self, *, client_factory: Callable[[], Awaitable],
-                 reset_policy: ResetPolicy, timeout_s: float) -> None:
+                 reset_policy: ResetPolicy, timeout_s: float,
+                 recall_fn: Callable[[str], list[str]] | None = None) -> None:
         self._factory = client_factory
         self._reset_policy = reset_policy
         self._timeout_s = timeout_s
@@ -40,6 +41,9 @@ class CrewChannel:
         self._last_turn_at: datetime | None = None
         self._lock = asyncio.Lock()
         self._rewarm_task: asyncio.Task | None = None
+        if recall_fn is None:
+            from poseidon.capability import recall_capabilities as recall_fn
+        self._recall_fn = recall_fn
 
     async def warm(self) -> None:
         """Eagerly create the SDK client (spec §2: connect once at startup)
@@ -93,9 +97,10 @@ class CrewChannel:
                 if phrase:
                     emit(phrase)
 
-            async def consume() -> None:
+            async def run_query(query_text: str) -> None:
                 nonlocal rc
-                await self._client.query(text)
+                texts.clear()
+                await self._client.query(query_text)
                 async for message in self._client.receive_response():
                     if isinstance(message, AssistantMessage):
                         tools = [b.name for b in message.content
@@ -111,7 +116,25 @@ class CrewChannel:
 
             dog = asyncio.create_task(watchdog())
             try:
-                await asyncio.wait_for(consume(), self._timeout_s)
+                await asyncio.wait_for(run_query(text), self._timeout_s)
+                if rc == 0 and fallback.is_no_route(" ".join(texts).strip()):
+                    try:
+                        facts = await asyncio.to_thread(self._recall_fn, text)
+                    except Exception:
+                        log.warning("capability recall failed; no fallback route")
+                        facts = []
+                    retry = fallback.build_retry_prompt(text, facts)
+                    if retry is not None:
+                        # INTENTIONAL out-of-budget emit: RECONSIDER_PHRASE signals a
+                        # retry transition, not tool progress — it is distinct from the
+                        # still-working/tool-ack budget managed by InterimPolicy.
+                        emit(interim_mod.RECONSIDER_PHRASE)
+                        await asyncio.wait_for(run_query(retry), self._timeout_s)
+                        if fallback.is_no_route(" ".join(texts).strip()):
+                            texts[:] = [interim_mod.NO_HELP_PHRASE]
+                    else:
+                        # No capability facts to augment with — nothing to retry.
+                        texts[:] = [interim_mod.NO_HELP_PHRASE]
             except asyncio.TimeoutError:
                 rc = "timeout"
                 texts.clear()

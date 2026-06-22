@@ -227,3 +227,102 @@ def test_consume_error_reports_rc1_and_disposes():
     r = asyncio.run(ch.ask("hi", lambda s: None))
     assert r.rc == 1 and r.text == ""
     assert clients[0].disconnected
+
+
+def test_no_route_fallback_recalls_and_retries():
+    """NO_ROUTE on first query → recall_fn called → retry → recovered answer."""
+    no_route_msg = [
+        _assistant([TextBlock(text="NO_ROUTE")]),
+        _result(),
+    ]
+    recovered_msg = [
+        _assistant([TextBlock(text="Drop the hook in Montague Harbour.")]),
+        _result(),
+    ]
+    scripts = [no_route_msg, recovered_msg]
+
+    recall_calls: list[str] = []
+
+    def fake_recall(query: str) -> list[str]:
+        recall_calls.append(query)
+        return ["The Navigator handles where to anchor for the night."]
+
+    clients = []
+
+    async def factory():
+        c = FakeClient(scripts)
+        clients.append(c)
+        return c
+
+    ch = CrewChannel(client_factory=factory,
+                     reset_policy=ResetPolicy(),
+                     timeout_s=60.0,
+                     recall_fn=fake_recall)
+
+    r = asyncio.run(ch.ask("where can we tuck in tonight", lambda s: None))
+    assert "Montague" in r.text
+    assert recall_calls == ["where can we tuck in tonight"]
+    assert len(clients[0].queries) == 2
+
+
+def test_no_route_with_no_facts_emits_no_help_and_skips_retry():
+    """NO_ROUTE + recall returns [] → NO_HELP phrase, exactly one query (no retry)."""
+    no_route_msg = [
+        _assistant([TextBlock(text="NO_ROUTE")]),
+        _result(),
+    ]
+    scripts = [no_route_msg]
+
+    def empty_recall(query: str) -> list[str]:
+        return []
+
+    clients = []
+
+    async def factory():
+        c = FakeClient(scripts)
+        clients.append(c)
+        return c
+
+    from poseidon import interim as interim_mod
+
+    ch = CrewChannel(client_factory=factory,
+                     reset_policy=ResetPolicy(),
+                     timeout_s=60.0,
+                     recall_fn=empty_recall)
+
+    r = asyncio.run(ch.ask("where to anchor?", lambda s: None))
+    assert r.text == interim_mod.NO_HELP_PHRASE
+    assert len(clients[0].queries) == 1
+
+
+def test_normal_turn_never_calls_recall_fn():
+    """A non-NO_ROUTE turn must never invoke recall_fn and sends exactly one query."""
+    normal_msg = [
+        _assistant([TextBlock(text="Wind is 10 knots from the NW.")]),
+        _result(),
+    ]
+    scripts = [normal_msg]
+
+    recall_called: list[str] = []
+
+    def should_not_be_called(query: str) -> list[str]:
+        recall_called.append(query)
+        return []
+
+    clients = []
+
+    async def factory():
+        c = FakeClient(scripts)
+        clients.append(c)
+        return c
+
+    ch = CrewChannel(client_factory=factory,
+                     reset_policy=ResetPolicy(),
+                     timeout_s=60.0,
+                     recall_fn=should_not_be_called)
+
+    r = asyncio.run(ch.ask("wind?", lambda s: None))
+    assert r.rc == 0
+    assert "Wind" in r.text
+    assert recall_called == [], "recall_fn must not be called on a normal turn"
+    assert len(clients[0].queries) == 1
