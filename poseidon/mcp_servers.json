@@ -65,7 +65,13 @@
     "args": ["mcp"],
     "env": {
       "MNEMOSYNE_DATA_DIR": "~/.naturali/mnemosyne/data",
-      "MNEMOSYNE_LLM_ENABLED": "false"
+      "MNEMOSYNE_LLM_ENABLED": "true",
+      "OPENROUTER_BASE_URL": "http://localhost:11434/v1",
+      "OPENROUTER_API_KEY": "ollama",
+      "MNEMOSYNE_EXTRACTION_MODEL": "qwen2.5:14b",
+      "MNEMOSYNE_LLM_BASE_URL": "http://localhost:11434/v1",
+      "MNEMOSYNE_LLM_API_KEY": "ollama",
+      "MNEMOSYNE_LLM_MODEL": "qwen2.5:14b"
     }
   }
 }
