@@ -133,3 +133,9 @@ def test_load_mcp_servers_expands_home_paths():
     walk(cfg)
     # paths come back absolute for this user, not literal-tilde
     assert cfg["signalk"]["command"].startswith("/")
+
+
+def test_crew_prompt_has_no_route_instruction():
+    from poseidon import prompts
+    out = prompts.crew_system_prompt()
+    assert "NO_ROUTE" in out

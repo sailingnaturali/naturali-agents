@@ -90,11 +90,18 @@ headings. Write units out as words: knots (never kn or kts), nautical
 miles (never nm), metres (never m), degrees true or magnetic (never
 \u00b0T or \u00b0M). Honor the spoken-reply budget strictly."""
 
+NO_ROUTE_ADDENDUM = """# When you cannot answer
+
+If you cannot identify any tool or subagent that can address the request, reply with
+exactly NO_ROUTE and nothing else \u2014 no apology, no explanation. The system will look up
+which crew member handles it and ask you again. This applies only to requests that need a
+tool; for ordinary conversation, reply normally."""
+
 
 def crew_system_prompt() -> str:
     return _modernize_tool_names(
         _read("SOUL.md") + "\n\n# Navigator duties\n\n" +
-        _read("skills/navigator/body.md")) + "\n\n" + TTS_ADDENDUM
+        _read("skills/navigator/body.md")) + "\n\n" + TTS_ADDENDUM + "\n\n" + NO_ROUTE_ADDENDUM
 
 
 def engineer_prompt() -> str:
