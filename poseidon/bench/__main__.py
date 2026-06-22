@@ -39,10 +39,20 @@ def main() -> None:
                         help="agent backend: sdk (Claude Agent SDK) or openai (Ollama /v1)")
     parser.add_argument("--base-url", default="http://localhost:11434/v1",
                         help="OpenAI-compatible base URL (openai backend)")
+    parser.add_argument("--offpath", action="store_true",
+                        help="run the off-golden set ON vs OFF and report answer-rate delta")
     args = parser.parse_args()
 
     # Env file holds ANTHROPIC_API_KEY (interim ~/.hermes/.env).
     config.load_env_file(config.ENV_FILE)
+
+    if args.offpath:
+        from poseidon.bench.offpath import answer_rate, run_offpath
+        off = asyncio.run(run_offpath(args.model, use_fallback=False))
+        on = asyncio.run(run_offpath(args.model, use_fallback=True))
+        print(f"\noff-golden answer-rate  OFF={answer_rate(off)*100:.1f}%  "
+              f"ON={answer_rate(on)*100:.1f}%  (n={len(off)})")
+        return
 
     if args.backend == "openai":
         from poseidon.bench.oai_runner import run_benchmark_openai

@@ -1,0 +1,18 @@
+[
+  {"id": "tuck-in", "category": "offpath-nav", "prompt": "Where can we tuck in for the night around here?", "expected_tools": ["mcp__pilotbook__assess_anchorage"], "multi_tool": true},
+  {"id": "hook-down", "category": "offpath-nav", "prompt": "Good spot to put the hook down before dark?", "expected_tools": ["mcp__pilotbook__assess_anchorage"], "multi_tool": true},
+  {"id": "juice-left", "category": "offpath-eng", "prompt": "How much juice have we got left?", "expected_tools": ["mcp__signalk__battery_state"], "multi_tool": false},
+  {"id": "water-low", "category": "offpath-eng", "prompt": "Are we going to run out of water soon?", "expected_tools": ["mcp__signalk__read_sensor"], "multi_tool": false},
+  {"id": "swing-room", "category": "offpath-nav", "prompt": "Will the tide leave us enough water under the keel overnight?", "expected_tools": ["mcp__currents__get_tide_heights", "mcp__signalk__depth_state"], "multi_tool": true},
+  {"id": "ferry-giveway", "category": "offpath-colregs", "prompt": "That ferry is crossing from our right — who gives way?", "expected_tools": ["mcp__colregs__check_compliance"], "multi_tool": false},
+  {"id": "slack-when", "category": "offpath-nav", "prompt": "When does the gate stop ripping at the pass?", "expected_tools": ["mcp__currents__get_gate_current"], "multi_tool": false},
+  {"id": "blow-tonight", "category": "offpath-nav", "prompt": "Is it going to honk tonight?", "expected_tools": ["mcp__weather__get_marine_forecast"], "multi_tool": false},
+  {"id": "club-bed", "category": "offpath-nav", "prompt": "Anywhere club we can grab a buoy this weekend?", "expected_tools": ["mcp__club-moorage__find_moorage_near"], "multi_tool": false},
+  {"id": "what-beeping", "category": "offpath-eng", "prompt": "What's that beeping and should I worry?", "expected_tools": ["mcp__signalk__get_active_alarms"], "multi_tool": false},
+  {"id": "furler-make", "category": "offpath-eng", "prompt": "Who makes our headsail furler again?", "expected_tools": ["Agent"], "multi_tool": false},
+  {"id": "log-it", "category": "offpath-log", "prompt": "Jot down that we spotted orcas off the bow.", "expected_tools": ["mcp__logbook__mark_moment"], "multi_tool": false},
+  {"id": "what-did-we-do", "category": "offpath-log", "prompt": "What did we get up to yesterday?", "expected_tools": ["mcp__logbook__read_entries"], "multi_tool": false},
+  {"id": "shallow-here", "category": "offpath-eng", "prompt": "Is it getting thin under us?", "expected_tools": ["mcp__signalk__depth_state"], "multi_tool": false},
+  {"id": "beach-clean", "category": "offpath-nav", "prompt": "Could we dry out here to scrub the bottom?", "expected_tools": ["mcp__currents__get_tide_heights", "mcp__signalk__depth_state"], "multi_tool": true},
+  {"id": "current-push", "category": "offpath-nav", "prompt": "Is the water going to push us around right now?", "expected_tools": ["mcp__currents__currents_near"], "multi_tool": false}
+]

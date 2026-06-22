@@ -42,3 +42,10 @@ def load_golden_asks(path: Path | None = None) -> list[Ask]:
         )
         for row in raw
     ]
+
+
+_OFFPATH_JSON = Path(__file__).with_name("off_golden_asks.json")
+
+
+def load_offpath_asks(path: Path | None = None) -> list[Ask]:
+    return load_golden_asks(path or _OFFPATH_JSON)
