@@ -162,15 +162,20 @@ def test_run_env_reload_applies_mqtt_creds(monkeypatch, tmp_path):
     importlib.reload(config)
 
 
-def test_mute_message_updates_registry_and_alarmlane_suppresses():
-    # A live mute envelope on the mutes topic must make the alarm lane go quiet
-    # for that category's paths, while the alert envelope is unchanged.
+def test_mute_message_updates_registry_and_alarmlane_suppresses(monkeypatch):
+    # A live (non-expired) mute envelope on the mutes topic must make the alarm
+    # lane go quiet for that category's paths. Base the envelope on the real
+    # clock so its rollover expiry is genuinely in the future — a hardcoded past
+    # `now` would make handle_mute's lazy expiry cleanup fire and attempt a real
+    # MQTT publish. Also stub the publishers so the test never touches the broker.
     from datetime import datetime, timezone
+    monkeypatch.setattr(daemon, "publish_mute_set", lambda c, e: None)
+    monkeypatch.setattr(daemon, "publish_mute_clear", lambda c: None)
     reg = mutes.MuteRegistry()
     lane = FakeAlarmLane("x")
     app, published = make_app(alarms=lane)
     app._mutes = reg  # daemon holds the registry (see implementation)
-    now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     env = mutes.build_mute_envelope("whale-zones", "voice", now, rollover_hour=6)
     asyncio.run(app.dispatch("naturali/mutes/whale-zones", env))
     assert reg.is_muted("navigation.restrictedArea.abc", "warn", now) is True
