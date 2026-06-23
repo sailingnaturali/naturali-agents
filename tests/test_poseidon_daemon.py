@@ -29,9 +29,11 @@ class FakeAlarmLane:
     def __init__(self, narration="Battery alarm."):
         self.narration = narration
         self.envs = []
+        self.retains = []
 
-    async def handle(self, env):
+    async def handle(self, env, retain=False):
         self.envs.append(env)
+        self.retains.append(retain)
         return self.narration
 
 
@@ -99,6 +101,25 @@ def test_alert_routes_to_alarm_lane_and_speaks_unsolicited():
     assert lane.envs and published == [
         {"text": "Battery alarm. Check the charger.", "trace_id": None,
          "interim": False}]
+
+
+def test_live_alert_forwarded_with_retain_false():
+    lane = FakeAlarmLane("x")
+    app, _ = make_app(alarms=lane)
+    asyncio.run(app.dispatch("naturali/alerts/electrical",
+                             {"state": "alarm", "path": "p", "timestamp": "T"}))
+    assert lane.retains == [False]
+
+
+def test_retained_alert_forwarded_with_retain_true():
+    # A reboot replays the retained backlog; dispatch must mark it so the lane
+    # reconciles silently instead of re-narrating the whole queue.
+    lane = FakeAlarmLane("x")
+    app, _ = make_app(alarms=lane)
+    asyncio.run(app.dispatch("naturali/alerts/electrical",
+                             {"state": "alarm", "path": "p", "timestamp": "T"},
+                             retain=True))
+    assert lane.retains == [True]
 
 
 def test_unknown_topic_logged_not_crashed():

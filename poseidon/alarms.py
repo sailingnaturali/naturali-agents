@@ -34,17 +34,26 @@ class AlarmLane:
         self._query = query_fn
         self._seen: dict[str, str] = {}   # path -> timestamp (retained-alert dedup)
 
-    async def handle(self, env: dict) -> str | None:
-        """Narrate one alarm envelope; returns the spoken text or None."""
+    async def handle(self, env: dict, retain: bool = False) -> str | None:
+        """Narrate one alarm envelope; returns the spoken text or None.
+
+        ``retain`` marks an MQTT retained delivery — the backlog the broker
+        replays whenever we (re)connect, e.g. after a reboot. We reconcile its
+        state into ``_seen`` silently and never speak it: an in-memory dedup
+        can't survive a restart, so without this every retained alert would be
+        re-narrated as if it just happened.
+        """
         state = env.get("state")
         path = env.get("path", "")
         ts = env.get("timestamp")
         if state not in _ACTIVE:           # cleared or below warn
             self._seen.pop(path, None)
             return None
-        if self._seen.get(path) == ts:     # retained redelivery
+        if self._seen.get(path) == ts:     # already seen (live redelivery)
             return None
         self._seen[path] = ts
+        if retain:                         # retained replay: seed dedup, stay silent
+            return None
 
         parts: list[str] = []
         try:

@@ -141,9 +141,9 @@ class Poseidon:
         self._publish = publish_say
         self._briefing = run_briefing
 
-    async def dispatch(self, topic: str, payload: dict) -> None:
+    async def dispatch(self, topic: str, payload: dict, retain: bool = False) -> None:
         if topic.startswith("naturali/alerts/"):
-            await self._handle_alert(payload)
+            await self._handle_alert(payload, retain)
         elif topic == "naturali/intents/ask":
             await self._handle_ask(payload)
         elif topic == "naturali/intents/briefing":
@@ -198,10 +198,10 @@ class Poseidon:
             query_chars=len(text), response_chars=len(result.text),
             rc=result.rc, model=config.MODEL))
 
-    async def _handle_alert(self, payload: dict) -> None:
+    async def _handle_alert(self, payload: dict, retain: bool = False) -> None:
         ctx = timing.timing_ctx("alert", payload)
         t0 = time.monotonic()
-        narration = await self._alarms.handle(payload)
+        narration = await self._alarms.handle(payload, retain=retain)
         if narration:
             await asyncio.to_thread(self._publish, narration)
             timing.append_timing_record(timing.build_record(
@@ -255,9 +255,11 @@ async def run() -> None:
             # asks serialize through the queue (one crew turn at a time)
             loop.call_soon_threadsafe(ask_queue.put_nowait, (msg.topic, payload))
         else:
-            # alarms + briefing run concurrently with any in-flight ask
+            # alarms + briefing run concurrently with any in-flight ask.
+            # msg.retain marks the backlog the broker replays on (re)connect —
+            # threaded through so the alarm lane reconciles it without speaking.
             fut = asyncio.run_coroutine_threadsafe(
-                app.dispatch(msg.topic, payload), loop)
+                app.dispatch(msg.topic, payload, retain=msg.retain), loop)
             fut.add_done_callback(
                 lambda f: f.exception() and
                 log.error("lane dispatch failed: %r", f.exception()))
