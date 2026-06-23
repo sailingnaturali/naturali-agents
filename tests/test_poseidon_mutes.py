@@ -18,6 +18,7 @@ def test_next_rollover_is_strictly_after_now():
     now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
     exp = mutes.next_rollover_expires(now, rollover_hour=6)
     parsed = datetime.fromisoformat(exp)
+    assert parsed.tzinfo is not None
     assert parsed > now
     assert parsed.astimezone().hour == 6
 

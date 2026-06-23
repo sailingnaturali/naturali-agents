@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def next_rollover_expires(now: datetime, rollover_hour: int) -> str:
     candidate = local.replace(hour=rollover_hour, minute=0, second=0, microsecond=0)
     if candidate <= local:
         candidate += timedelta(days=1)
-    return candidate.isoformat()
+    return candidate.astimezone(timezone.utc).isoformat()
 
 
 def build_mute_envelope(category: str, muted_by: str, now: datetime,
