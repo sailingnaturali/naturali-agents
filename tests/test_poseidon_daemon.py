@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from poseidon import daemon, timing as timing_mod
+from poseidon import daemon, mutes, timing as timing_mod
 from poseidon.engine import TurnResult
 
 
@@ -160,6 +160,20 @@ def test_run_env_reload_applies_mqtt_creds(monkeypatch, tmp_path):
     monkeypatch.delenv("MQTT_USER", raising=False)
     monkeypatch.delenv("MQTT_PASSWORD", raising=False)
     importlib.reload(config)
+
+
+def test_mute_message_updates_registry_and_alarmlane_suppresses():
+    # A live mute envelope on the mutes topic must make the alarm lane go quiet
+    # for that category's paths, while the alert envelope is unchanged.
+    from datetime import datetime, timezone
+    reg = mutes.MuteRegistry()
+    lane = FakeAlarmLane("x")
+    app, published = make_app(alarms=lane)
+    app._mutes = reg  # daemon holds the registry (see implementation)
+    now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
+    env = mutes.build_mute_envelope("whale-zones", "voice", now, rollover_hour=6)
+    asyncio.run(app.dispatch("naturali/mutes/whale-zones", env))
+    assert reg.is_muted("navigation.restrictedArea.abc", "warn", now) is True
 
 
 def test_speech_normalization_units_and_tables():

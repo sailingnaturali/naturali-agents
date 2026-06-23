@@ -26,6 +26,8 @@ AGENT_NAME = os.environ.get("AGENT_NAME", "navigator")
 SAY_TOPIC = f"naturali/agents/{AGENT_NAME}/say"
 INTENTS_TOPIC = "naturali/intents/#"
 ALERTS_TOPIC = "naturali/alerts/#"
+MUTES_TOPIC = "naturali/mutes/#"
+MUTES_TOPIC_PREFIX = "naturali/mutes"
 
 MODEL = os.environ.get("POSEIDON_MODEL", "claude-sonnet-4-6")
 ASK_TIMEOUT_S = float(os.environ.get("POSEIDON_ASK_TIMEOUT", "60"))
