@@ -35,7 +35,7 @@ def apply_mute_request(category: str, action: str,
     if action == "unmute":
         publish(category, None)
         return f"{_spoken(category).capitalize()} alerts back on."
-    return "Tell me whether to mute or unmute, and which alerts."
+    return f"Tell me whether to mute or unmute {_spoken(category)} alerts."
 
 
 @tool("set_alert_mute",
@@ -47,7 +47,7 @@ async def set_alert_mute(args):
     from poseidon.daemon import publish_mute_clear, publish_mute_set
 
     def _publish(category: str, env: dict | None) -> None:
-        publish_mute_set(category, env) if env else publish_mute_clear(category)
+        publish_mute_set(category, env) if env is not None else publish_mute_clear(category)
 
     msg = apply_mute_request(args["category"], args["action"], _publish,
                              datetime.now().astimezone(), config.ROLLOVER_HOUR)

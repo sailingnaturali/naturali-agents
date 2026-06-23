@@ -33,3 +33,13 @@ def test_unknown_category_rejects_without_publishing():
         NOW, rollover_hour=6)
     assert sent == []
     assert "don't" in msg.lower() or "no" in msg.lower() or "unknown" in msg.lower()
+
+
+def test_unknown_action_rejects_without_publishing():
+    sent = []
+    msg = mute_tool.apply_mute_request(
+        "whale-zones", "snooze", lambda cat, env: sent.append((cat, env)),
+        NOW, rollover_hour=6)
+    assert sent == []
+    assert "mute" in msg.lower() or "unmute" in msg.lower()
+    assert "whale" in msg.lower()
