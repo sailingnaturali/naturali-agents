@@ -106,11 +106,12 @@ def test_crew_options_constructs_with_two_subagents():
     assert opts.agents is not None
     assert "engineer" in opts.agents
     assert "logbook" in opts.agents
-    # mcp_servers must be a dict (not a Path) with all 8 expected server keys
+    # mcp_servers must be a dict (not a Path) with all expected server keys
     assert isinstance(opts.mcp_servers, dict)
     expected_servers = {
         "signalk", "logbook", "currents", "weather",
         "pilotbook", "colregs", "vessel-knowledge", "club-moorage", "memory",
+        "mutes",  # in-process SDK server (set_alert_mute voice tool)
     }
     assert expected_servers == set(opts.mcp_servers.keys())
     # hard Navigator scoping: vessel-knowledge and logbook blocked from main context

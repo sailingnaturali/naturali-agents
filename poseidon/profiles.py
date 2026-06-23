@@ -35,6 +35,7 @@ NAVIGATOR_TOOLS = [
     # triples rather than the full 28-tool surface, to keep the prompt lean.
     "mcp__memory__mnemosyne_recall", "mcp__memory__mnemosyne_remember",
     "mcp__memory__mnemosyne_triple_query", "mcp__memory__mnemosyne_triple_add",
+    "mcp__mutes__set_alert_mute",
     "Agent",  # delegation to Engineer/Logbook subagents
 ]
 ENGINEER_TOOLS = ["mcp__vessel-knowledge", "mcp__signalk"]
@@ -61,10 +62,13 @@ def load_mcp_servers(path: Path | None = None) -> dict:
 
 
 def crew_options() -> ClaudeAgentOptions:
+    from poseidon.mute_tool import mutes_server
+    servers = load_mcp_servers()
+    servers["mutes"] = mutes_server
     return ClaudeAgentOptions(
         system_prompt=prompts.crew_system_prompt(),
         model=config.MODEL,
-        mcp_servers=load_mcp_servers(),
+        mcp_servers=servers,
         strict_mcp_config=True,
         allowed_tools=NAVIGATOR_TOOLS + ENGINEER_TOOLS + LOGBOOK_TOOLS,
         tools=NAVIGATOR_TOOLS,

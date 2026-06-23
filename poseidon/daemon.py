@@ -113,6 +113,15 @@ def publish_mute_clear(category: str) -> None:
                         auth=auth)
 
 
+def publish_mute_set(category: str, envelope: dict) -> None:
+    """Publish a retained mute envelope."""
+    auth = ({"username": config.MQTT_USER, "password": config.MQTT_PASSWORD}
+            if config.MQTT_USER else None)
+    mqtt_publish.single(f"{config.MUTES_TOPIC_PREFIX}/{category}",
+                        payload=json.dumps(envelope), retain=True,
+                        hostname=config.BROKER, port=config.PORT, auth=auth)
+
+
 def run_briefing(timing_ctx: dict | None = None) -> None:
     """Ported from the bridge: briefing.py handles its own outputs."""
     log.info("triggering daily briefing generation")
