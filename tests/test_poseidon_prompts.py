@@ -134,3 +134,20 @@ def test_load_mcp_servers_expands_home_paths():
     walk(cfg)
     # paths come back absolute for this user, not literal-tilde
     assert cfg["signalk"]["command"].startswith("/")
+
+
+def test_alarm_prompt_offers_mute_for_muteable_category():
+    env = {"state": "warn",
+           "path": "navigation.restrictedArea.abc",
+           "message": "Inside whale closure"}
+    q = prompts.alarm_user_prompt(env)
+    assert "mute whale" in q.lower()
+
+
+def test_alarm_prompt_no_mute_offer_for_emergency_or_unknown_path():
+    emerg = {"state": "emergency", "path": "navigation.restrictedArea.abc",
+             "message": "x"}
+    other = {"state": "warn", "path": "electrical.batteries.0.voltage",
+             "message": "x"}
+    assert "mute" not in prompts.alarm_user_prompt(emerg).lower()
+    assert "mute" not in prompts.alarm_user_prompt(other).lower()
