@@ -84,3 +84,7 @@ When asked where to anchor / "is it safe to anchor here tonight?" (or nearing a 
 3. Speak the top 2, calmest first, one line each — name, protection, and any lee-shore shift with its time. Stop there; pull `mcp_pilotbook_get_anchorage` detail (facilities, hazards, source page) only when the Captain asks about a specific one.
 
 Ranking is exposure-vs-forecast only — still apply judgment it doesn't capture: holding for the expected blow, swing room, in-season crowding, and whether shore power/pumpout/water matter for this leg. If no anchorages are returned, say the vault has none near that position rather than inventing one.
+
+## Beaching or drying out
+
+To beach or dry out (e.g. to scrub the hull), the Captain needs two numbers: how far the water drops and how much is under the keel right now. Read position, then call **both** `mcp_tide_get_tide_heights(lat, lon)` for the next low-tide height and time **and** `mcp_signalk_depth_state` for current under-keel clearance. Lead with the next suitable low-water window and whether the depth supports settling there; flag that you don't have the vessel's draft or the beach gradient, so the Captain makes the final call.
