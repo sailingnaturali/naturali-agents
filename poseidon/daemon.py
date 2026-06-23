@@ -172,6 +172,14 @@ class Poseidon:
         elif topic == "naturali/intents/briefing":
             await asyncio.to_thread(self._briefing,
                                     timing.timing_ctx("briefing", payload))
+        elif topic == "naturali/intents/mute":
+            from datetime import datetime
+            from poseidon.mute_tool import apply_mute_request
+
+            def _pub(category, env):
+                publish_mute_set(category, env) if env is not None else publish_mute_clear(category)
+            apply_mute_request(payload.get("category", ""), payload.get("action", ""),
+                               _pub, datetime.now().astimezone(), config.ROLLOVER_HOUR)
         else:
             log.warning("unhandled topic: %s", topic)
 

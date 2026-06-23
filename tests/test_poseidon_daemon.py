@@ -200,3 +200,24 @@ def test_expired_mute_envelope_clears_its_retained_slot(monkeypatch):
     asyncio.run(app.dispatch("naturali/mutes/whale-zones", env))
     assert cleared == ["whale-zones"]
     assert reg.is_muted("navigation.restrictedArea.abc", "warn") is False
+
+
+def test_intents_mute_routes_through_apply_mute_request(monkeypatch):
+    sets, clears = [], []
+    monkeypatch.setattr(daemon, "publish_mute_set", lambda c, e: sets.append((c, e)))
+    monkeypatch.setattr(daemon, "publish_mute_clear", lambda c: clears.append(c))
+    app, _ = make_app()
+    asyncio.run(app.dispatch("naturali/intents/mute",
+                             {"category": "whale-zones", "action": "mute"}))
+    assert len(sets) == 1 and sets[0][0] == "whale-zones"
+    assert clears == []
+
+
+def test_intents_unmute_routes_to_clear(monkeypatch):
+    sets, clears = [], []
+    monkeypatch.setattr(daemon, "publish_mute_set", lambda c, e: sets.append((c, e)))
+    monkeypatch.setattr(daemon, "publish_mute_clear", lambda c: clears.append(c))
+    app, _ = make_app()
+    asyncio.run(app.dispatch("naturali/intents/mute",
+                             {"category": "whale-zones", "action": "unmute"}))
+    assert clears == ["whale-zones"] and sets == []
