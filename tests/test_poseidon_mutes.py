@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from poseidon import mutes
 
@@ -39,3 +39,43 @@ def test_parse_envelope_round_trips_and_rejects_garbage():
     assert mutes.parse_mute_envelope(b"") is None
     assert mutes.parse_mute_envelope(b"not json") is None
     assert mutes.parse_mute_envelope({"category": "x"}) is None  # no expires
+
+
+def _reg_with(category, now, rollover_hour=6):
+    reg = mutes.MuteRegistry()
+    reg.apply(category, mutes.build_mute_envelope(category, "voice", now, rollover_hour))
+    return reg
+
+
+def test_muted_warn_is_muted_but_emergency_and_alarm_are_not():
+    now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
+    reg = _reg_with("whale-zones", now)
+    path = "navigation.restrictedArea.abc"
+    assert reg.is_muted(path, "warn", now) is True
+    assert reg.is_muted(path, "alert", now) is True
+    assert reg.is_muted(path, "alarm", now) is False       # ceiling B
+    assert reg.is_muted(path, "emergency", now) is False    # ceiling B
+
+
+def test_unmuted_or_unknown_path_is_not_muted():
+    now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
+    reg = _reg_with("whale-zones", now)
+    assert reg.is_muted("electrical.batteries.0.voltage", "warn", now) is False
+    reg.apply("whale-zones", None)  # clear
+    assert reg.is_muted("navigation.restrictedArea.abc", "warn", now) is False
+
+
+def test_expired_mute_does_not_suppress_and_is_reported():
+    now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
+    reg = _reg_with("whale-zones", now)
+    later = now + timedelta(days=2)
+    assert reg.is_muted("navigation.restrictedArea.abc", "warn", later) is False
+    assert reg.expired_categories(later) == ["whale-zones"]
+    assert reg.expired_categories(now) == []
+
+
+def test_malformed_expires_fails_open():
+    reg = mutes.MuteRegistry()
+    reg.apply("whale-zones", {"category": "whale-zones", "expires": "not-a-date"})
+    now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
+    assert reg.is_muted("navigation.restrictedArea.abc", "warn", now) is False

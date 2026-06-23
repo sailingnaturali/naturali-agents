@@ -60,3 +60,46 @@ def parse_mute_envelope(raw: bytes | dict) -> dict | None:
     if not obj.get("category") or not obj.get("expires"):
         return None
     return obj
+
+
+MUTEABLE_STATES = {"alert", "warn"}   # ceiling: alarm/emergency never muted
+
+
+def _parse_dt(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None
+
+
+class MuteRegistry:
+    """In-memory category -> expires(datetime) map. Authoritative on expiry."""
+
+    def __init__(self) -> None:
+        self._map: dict[str, datetime] = {}
+
+    def apply(self, category: str, envelope: dict | None) -> None:
+        if envelope is None:
+            self._map.pop(category, None)
+            return
+        exp = _parse_dt(envelope.get("expires", ""))
+        if exp is None:               # malformed expiry -> fail open (no mute)
+            self._map.pop(category, None)
+            return
+        self._map[category] = exp
+
+    def is_muted(self, path: str, state: str, now: datetime | None = None) -> bool:
+        if state not in MUTEABLE_STATES:      # safety rail B
+            return False
+        category = category_for_path(path)
+        if category is None:
+            return False
+        exp = self._map.get(category)
+        if exp is None:
+            return False
+        now = now or datetime.now().astimezone()
+        return now < exp                      # past expires -> not muted
+
+    def expired_categories(self, now: datetime | None = None) -> list[str]:
+        now = now or datetime.now().astimezone()
+        return [c for c, exp in self._map.items() if exp <= now]
