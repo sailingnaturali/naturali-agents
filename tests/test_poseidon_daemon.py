@@ -186,3 +186,17 @@ def test_speech_normalization_units_and_tables():
     assert "305 degrees true" in out and "120 degrees magnetic" in out
     assert "90 degrees" in out
     assert "|" not in out and "---" not in out
+
+
+def test_expired_mute_envelope_clears_its_retained_slot(monkeypatch):
+    from datetime import datetime, timezone, timedelta
+    cleared = []
+    monkeypatch.setattr(daemon, "publish_mute_clear", lambda c: cleared.append(c))
+    reg = mutes.MuteRegistry()
+    app, _ = make_app()
+    app._mutes = reg
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    env = mutes.build_mute_envelope("whale-zones", "voice", past, rollover_hour=6)
+    asyncio.run(app.dispatch("naturali/mutes/whale-zones", env))
+    assert cleared == ["whale-zones"]
+    assert reg.is_muted("navigation.restrictedArea.abc", "warn") is False

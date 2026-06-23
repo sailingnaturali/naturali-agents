@@ -104,6 +104,15 @@ def publish_say(text: str, trace_id: str | None = None,
                         hostname=config.BROKER, port=config.PORT, auth=auth)
 
 
+def publish_mute_clear(category: str) -> None:
+    """Delete a retained mute slot (empty retained payload)."""
+    auth = ({"username": config.MQTT_USER, "password": config.MQTT_PASSWORD}
+            if config.MQTT_USER else None)
+    mqtt_publish.single(f"{config.MUTES_TOPIC_PREFIX}/{category}", payload=None,
+                        retain=True, hostname=config.BROKER, port=config.PORT,
+                        auth=auth)
+
+
 def run_briefing(timing_ctx: dict | None = None) -> None:
     """Ported from the bridge: briefing.py handles its own outputs."""
     log.info("triggering daily briefing generation")
@@ -223,6 +232,10 @@ class Poseidon:
         category = topic.rsplit("/", 1)[-1]
         envelope = parse_mute_envelope(payload) if payload else None
         self._mutes.apply(category, envelope)
+        for expired in self._mutes.expired_categories():
+            publish_mute_clear(expired)
+            self._mutes.apply(expired, None)
+            log.info("cleared expired mute slot: %s", expired)
         log.info("mute %s: %s", category, "set" if envelope else "cleared")
 
 
