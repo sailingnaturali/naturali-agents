@@ -30,8 +30,9 @@ def _alarm_options(state: str) -> ClaudeAgentOptions:
 
 
 class AlarmLane:
-    def __init__(self, query_fn=query) -> None:
+    def __init__(self, query_fn=query, is_muted=None) -> None:
         self._query = query_fn
+        self._is_muted = is_muted or (lambda path, state: False)
         self._seen: dict[str, str] = {}   # path -> timestamp (retained-alert dedup)
 
     async def handle(self, env: dict, retain: bool = False) -> str | None:
@@ -53,6 +54,9 @@ class AlarmLane:
             return None
         self._seen[path] = ts
         if retain:                         # retained replay: seed dedup, stay silent
+            return None
+        if self._is_muted(path, state):    # category muted: silence voice only
+            log.info("alarm suppressed by mute: %s (%s)", path, state)
             return None
 
         parts: list[str] = []

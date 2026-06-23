@@ -74,3 +74,19 @@ def test_options_are_minimal_no_tools():
     _, options = calls[0]
     assert options.allowed_tools == []
     assert options.mcp_servers in ({}, None)
+
+
+def test_muted_path_is_not_narrated():
+    fq, calls = fake_query_returning("Whale zone warning.")
+    lane = AlarmLane(query_fn=fq, is_muted=lambda path, state: True)
+    out = asyncio.run(lane.handle({**ENV, "state": "warn"}))
+    assert out is None
+    assert len(calls) == 0
+
+
+def test_unmuted_path_still_narrates_with_predicate_present():
+    fq, calls = fake_query_returning("Battery alarm.")
+    lane = AlarmLane(query_fn=fq, is_muted=lambda path, state: False)
+    out = asyncio.run(lane.handle(dict(ENV)))
+    assert out == "Battery alarm."
+    assert len(calls) == 1
