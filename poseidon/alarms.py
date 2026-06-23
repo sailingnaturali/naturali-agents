@@ -55,7 +55,12 @@ class AlarmLane:
         self._seen[path] = ts
         if retain:                         # retained replay: seed dedup, stay silent
             return None
-        if self._is_muted(path, state):    # category muted: silence voice only
+        try:
+            muted = self._is_muted(path, state)
+        except Exception:                  # fail toward speaking (safety rail A)
+            log.exception("mute check failed; narrating alarm")
+            muted = False
+        if muted:                          # category muted: silence voice only
             log.info("alarm suppressed by mute: %s (%s)", path, state)
             return None
 

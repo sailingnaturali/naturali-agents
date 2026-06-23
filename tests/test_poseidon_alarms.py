@@ -103,3 +103,14 @@ def test_muted_path_dedup_still_recorded():
     out = asyncio.run(lane.handle(env))  # same ts -> deduped, must not re-fire
     assert out is None
     assert len(calls) == 0
+
+
+def test_mute_check_failure_falls_open_to_narration():
+    # Safety rail A: if the mute predicate raises, the alarm must still be spoken.
+    def boom(path, state):
+        raise RuntimeError("registry exploded")
+    fq, calls = fake_query_returning("Battery alarm.")
+    lane = AlarmLane(query_fn=fq, is_muted=boom)
+    out = asyncio.run(lane.handle(dict(ENV)))
+    assert out == "Battery alarm."
+    assert len(calls) == 1

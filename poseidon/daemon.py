@@ -165,7 +165,7 @@ class Poseidon:
     async def dispatch(self, topic: str, payload: dict, retain: bool = False) -> None:
         if topic.startswith("naturali/alerts/"):
             await self._handle_alert(payload, retain)
-        elif topic.startswith("naturali/mutes/"):
+        elif topic.startswith(config.MUTES_TOPIC_PREFIX + "/"):
             self.handle_mute(topic, payload)
         elif topic == "naturali/intents/ask":
             await self._handle_ask(payload)
