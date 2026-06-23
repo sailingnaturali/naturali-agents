@@ -1,10 +1,10 @@
 {
   "model": "claude-sonnet-4-6",
-  "n": 13,
-  "correctness": 0.46153846153846156,
+  "n": 39,
+  "correctness": 0.48717948717948717,
   "error_rate": 0.0,
-  "latency_p50": 8.886,
-  "latency_p95": 19.211,
+  "latency_p50": 3.651,
+  "latency_p95": 11.565,
   "per_ask": [
     {
       "id": "depth",
@@ -13,11 +13,10 @@
         "mcp__signalk__depth_state"
       ],
       "observed": [
-        "mcp__signalk__depth_state",
-        "mcp__signalk__read_sensor"
+        "mcp__signalk__depth_state"
       ],
       "match": true,
-      "dt_total": 19.064,
+      "dt_total": 5.299,
       "is_error": false
     },
     {
@@ -30,7 +29,7 @@
         "mcp__signalk__battery_state"
       ],
       "match": true,
-      "dt_total": 9.18,
+      "dt_total": 3.805,
       "is_error": false
     },
     {
@@ -43,7 +42,7 @@
         "mcp__signalk__get_active_alarms"
       ],
       "match": true,
-      "dt_total": 8.886,
+      "dt_total": 4.317,
       "is_error": false
     },
     {
@@ -53,10 +52,11 @@
         "mcp__signalk__read_sensor"
       ],
       "observed": [
+        "mcp__signalk__list_paths",
         "mcp__signalk__read_sensor"
       ],
       "match": true,
-      "dt_total": 19.145,
+      "dt_total": 7.362,
       "is_error": false
     },
     {
@@ -66,10 +66,12 @@
         "mcp__weather__get_marine_forecast"
       ],
       "observed": [
-        "mcp__memory__mnemosyne_recall"
+        "mcp__signalk__read_sensor",
+        "mcp__signalk__get_local_time",
+        "mcp__weather__get_marine_forecast"
       ],
-      "match": false,
-      "dt_total": 10.704,
+      "match": true,
+      "dt_total": 16.244,
       "is_error": false
     },
     {
@@ -82,7 +84,7 @@
         "mcp__currents__get_gate_current"
       ],
       "match": true,
-      "dt_total": 13.499,
+      "dt_total": 10.114,
       "is_error": false
     },
     {
@@ -91,9 +93,11 @@
       "expected": [
         "mcp__currents__currents_near"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 2.987,
+      "observed": [
+        "mcp__currents__currents_near"
+      ],
+      "match": true,
+      "dt_total": 6.778,
       "is_error": false
     },
     {
@@ -102,9 +106,11 @@
       "expected": [
         "mcp__currents__get_tide_heights"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 1.955,
+      "observed": [
+        "mcp__currents__get_tide_heights"
+      ],
+      "match": true,
+      "dt_total": 9.725,
       "is_error": false
     },
     {
@@ -113,9 +119,11 @@
       "expected": [
         "mcp__pilotbook__find_anchorages_near"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 1.604,
+      "observed": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "match": true,
+      "dt_total": 5.841,
       "is_error": false
     },
     {
@@ -124,9 +132,11 @@
       "expected": [
         "mcp__pilotbook__assess_anchorage"
       ],
-      "observed": [],
-      "match": false,
-      "dt_total": 2.237,
+      "observed": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "match": true,
+      "dt_total": 8.146,
       "is_error": false
     },
     {
@@ -137,7 +147,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 1.673,
+      "dt_total": 3.651,
       "is_error": false
     },
     {
@@ -149,7 +159,7 @@
       ],
       "observed": [],
       "match": false,
-      "dt_total": 2.252,
+      "dt_total": 11.317,
       "is_error": false
     },
     {
@@ -163,7 +173,311 @@
         "mcp__signalk__battery_state"
       ],
       "match": true,
-      "dt_total": 19.31,
+      "dt_total": 13.794,
+      "is_error": false
+    },
+    {
+      "id": "depth",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [
+        "mcp__signalk__depth_state"
+      ],
+      "match": true,
+      "dt_total": 3.49,
+      "is_error": false
+    },
+    {
+      "id": "battery",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__battery_state"
+      ],
+      "observed": [
+        "mcp__signalk__battery_state"
+      ],
+      "match": true,
+      "dt_total": 3.561,
+      "is_error": false
+    },
+    {
+      "id": "alarms",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "match": true,
+      "dt_total": 3.305,
+      "is_error": false
+    },
+    {
+      "id": "black-water-tank",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor"
+      ],
+      "match": true,
+      "dt_total": 4.05,
+      "is_error": false
+    },
+    {
+      "id": "wind-forecast",
+      "category": "navigator",
+      "expected": [
+        "mcp__weather__get_marine_forecast"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 8.67,
+      "is_error": false
+    },
+    {
+      "id": "current-boundary",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_gate_current"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 7.179,
+      "is_error": false
+    },
+    {
+      "id": "currents-nearby",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__currents_near"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 3.616,
+      "is_error": false
+    },
+    {
+      "id": "tide-heights",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_tide_heights"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 5.062,
+      "is_error": false
+    },
+    {
+      "id": "anchorage-near",
+      "category": "navigator",
+      "expected": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.921,
+      "is_error": false
+    },
+    {
+      "id": "safe-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 3.3,
+      "is_error": false
+    },
+    {
+      "id": "where-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 3.044,
+      "is_error": false
+    },
+    {
+      "id": "can-we-beach",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__currents__get_tide_heights",
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 3.09,
+      "is_error": false
+    },
+    {
+      "id": "explain-alarm",
+      "category": "delegated",
+      "expected": [
+        "Agent"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.737,
+      "is_error": false
+    },
+    {
+      "id": "depth",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [
+        "mcp__signalk__depth_state"
+      ],
+      "match": true,
+      "dt_total": 3.414,
+      "is_error": false
+    },
+    {
+      "id": "battery",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__battery_state"
+      ],
+      "observed": [
+        "mcp__signalk__battery_state"
+      ],
+      "match": true,
+      "dt_total": 3.131,
+      "is_error": false
+    },
+    {
+      "id": "alarms",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "match": true,
+      "dt_total": 3.252,
+      "is_error": false
+    },
+    {
+      "id": "black-water-tank",
+      "category": "engineer-direct",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "mcp__signalk__read_sensor"
+      ],
+      "match": true,
+      "dt_total": 4.192,
+      "is_error": false
+    },
+    {
+      "id": "wind-forecast",
+      "category": "navigator",
+      "expected": [
+        "mcp__weather__get_marine_forecast"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 5.138,
+      "is_error": false
+    },
+    {
+      "id": "current-boundary",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_gate_current"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.002,
+      "is_error": false
+    },
+    {
+      "id": "currents-nearby",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__currents_near"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.222,
+      "is_error": false
+    },
+    {
+      "id": "tide-heights",
+      "category": "navigator",
+      "expected": [
+        "mcp__currents__get_tide_heights"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.385,
+      "is_error": false
+    },
+    {
+      "id": "anchorage-near",
+      "category": "navigator",
+      "expected": [
+        "mcp__pilotbook__find_anchorages_near"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 1.872,
+      "is_error": false
+    },
+    {
+      "id": "safe-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.593,
+      "is_error": false
+    },
+    {
+      "id": "where-to-anchor",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__pilotbook__assess_anchorage"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 1.634,
+      "is_error": false
+    },
+    {
+      "id": "can-we-beach",
+      "category": "navigator-multi",
+      "expected": [
+        "mcp__currents__get_tide_heights",
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 4.816,
+      "is_error": false
+    },
+    {
+      "id": "explain-alarm",
+      "category": "delegated",
+      "expected": [
+        "Agent"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.514,
       "is_error": false
     }
   ]
