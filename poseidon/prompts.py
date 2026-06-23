@@ -12,6 +12,8 @@ import os
 import re
 from pathlib import Path
 
+from poseidon.mutes import MUTEABLE_STATES, category_for_path
+
 log = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -116,13 +118,19 @@ urgent. Never speak coordinates, paths, MMSI numbers, or timestamps."""
 def alarm_user_prompt(env: dict) -> str:
     """Seed for one alarm narration (ported from the bridge's alert_query;
     the no-tools alarm lane drops the explain_notification escape hatch)."""
-    return (
+    base = (
         f"ALARM DISPATCH ({env.get('state')}, path {env.get('path')}): "
         f'announce this to the Captain now: "{env.get("message")}". '
         "Speak at most two short sentences: the announcement, plus one action "
         "only if obvious and urgent. Do not report other systems or readings, "
         "and never speak coordinates, paths, MMSI numbers, or timestamps."
     )
+    category = category_for_path(env.get("path", ""))
+    if category and env.get("state") in MUTEABLE_STATES:
+        spoken = category.replace("-", " ")
+        base += (f" If the Captain may want quiet on these, you may add: "
+                 f"say 'mute {spoken}' and I'll keep quiet about them today.")
+    return base
 
 
 def model_for_state(state: str) -> str | None:

@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from poseidon import daemon, timing as timing_mod
+from poseidon import daemon, mutes, timing as timing_mod
 from poseidon.engine import TurnResult
 
 
@@ -162,6 +162,20 @@ def test_run_env_reload_applies_mqtt_creds(monkeypatch, tmp_path):
     importlib.reload(config)
 
 
+def test_mute_message_updates_registry_and_alarmlane_suppresses():
+    # A live mute envelope on the mutes topic must make the alarm lane go quiet
+    # for that category's paths, while the alert envelope is unchanged.
+    from datetime import datetime, timezone
+    reg = mutes.MuteRegistry()
+    lane = FakeAlarmLane("x")
+    app, published = make_app(alarms=lane)
+    app._mutes = reg  # daemon holds the registry (see implementation)
+    now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
+    env = mutes.build_mute_envelope("whale-zones", "voice", now, rollover_hour=6)
+    asyncio.run(app.dispatch("naturali/mutes/whale-zones", env))
+    assert reg.is_muted("navigation.restrictedArea.abc", "warn", now) is True
+
+
 def test_speech_normalization_units_and_tables():
     text = ("Wind **13 kn** from the NW, seas 0.5 m.\n"
             "| Name | Dist |\n|---|---|\n| Clam Bay | 4.2 nm |\n"
@@ -172,3 +186,38 @@ def test_speech_normalization_units_and_tables():
     assert "305 degrees true" in out and "120 degrees magnetic" in out
     assert "90 degrees" in out
     assert "|" not in out and "---" not in out
+
+
+def test_expired_mute_envelope_clears_its_retained_slot(monkeypatch):
+    from datetime import datetime, timezone, timedelta
+    cleared = []
+    monkeypatch.setattr(daemon, "publish_mute_clear", lambda c: cleared.append(c))
+    reg = mutes.MuteRegistry()
+    app, _ = make_app()
+    app._mutes = reg
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    env = mutes.build_mute_envelope("whale-zones", "voice", past, rollover_hour=6)
+    asyncio.run(app.dispatch("naturali/mutes/whale-zones", env))
+    assert cleared == ["whale-zones"]
+    assert reg.is_muted("navigation.restrictedArea.abc", "warn") is False
+
+
+def test_intents_mute_routes_through_apply_mute_request(monkeypatch):
+    sets, clears = [], []
+    monkeypatch.setattr(daemon, "publish_mute_set", lambda c, e: sets.append((c, e)))
+    monkeypatch.setattr(daemon, "publish_mute_clear", lambda c: clears.append(c))
+    app, _ = make_app()
+    asyncio.run(app.dispatch("naturali/intents/mute",
+                             {"category": "whale-zones", "action": "mute"}))
+    assert len(sets) == 1 and sets[0][0] == "whale-zones"
+    assert clears == []
+
+
+def test_intents_unmute_routes_to_clear(monkeypatch):
+    sets, clears = [], []
+    monkeypatch.setattr(daemon, "publish_mute_set", lambda c, e: sets.append((c, e)))
+    monkeypatch.setattr(daemon, "publish_mute_clear", lambda c: clears.append(c))
+    app, _ = make_app()
+    asyncio.run(app.dispatch("naturali/intents/mute",
+                             {"category": "whale-zones", "action": "unmute"}))
+    assert clears == ["whale-zones"] and sets == []

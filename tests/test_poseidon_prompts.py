@@ -106,11 +106,12 @@ def test_crew_options_constructs_with_two_subagents():
     assert opts.agents is not None
     assert "engineer" in opts.agents
     assert "logbook" in opts.agents
-    # mcp_servers must be a dict (not a Path) with all 8 expected server keys
+    # mcp_servers must be a dict (not a Path) with all expected server keys
     assert isinstance(opts.mcp_servers, dict)
     expected_servers = {
         "signalk", "logbook", "currents", "weather",
         "pilotbook", "colregs", "vessel-knowledge", "club-moorage", "memory",
+        "mutes",  # in-process SDK server (set_alert_mute voice tool)
     }
     assert expected_servers == set(opts.mcp_servers.keys())
     # hard Navigator scoping: vessel-knowledge and logbook blocked from main context
@@ -133,3 +134,20 @@ def test_load_mcp_servers_expands_home_paths():
     walk(cfg)
     # paths come back absolute for this user, not literal-tilde
     assert cfg["signalk"]["command"].startswith("/")
+
+
+def test_alarm_prompt_offers_mute_for_muteable_category():
+    env = {"state": "warn",
+           "path": "navigation.restrictedArea.abc",
+           "message": "Inside whale closure"}
+    q = prompts.alarm_user_prompt(env)
+    assert "mute whale" in q.lower()
+
+
+def test_alarm_prompt_no_mute_offer_for_emergency_or_unknown_path():
+    emerg = {"state": "emergency", "path": "navigation.restrictedArea.abc",
+             "message": "x"}
+    other = {"state": "warn", "path": "electrical.batteries.0.voltage",
+             "message": "x"}
+    assert "mute" not in prompts.alarm_user_prompt(emerg).lower()
+    assert "mute" not in prompts.alarm_user_prompt(other).lower()

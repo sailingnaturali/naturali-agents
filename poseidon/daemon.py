@@ -26,6 +26,7 @@ import paho.mqtt.publish as mqtt_publish
 from poseidon import config, prompts, timing
 from poseidon.alarms import AlarmLane
 from poseidon.engine import CrewChannel, sdk_client_factory
+from poseidon.mutes import MuteRegistry, parse_mute_envelope
 from poseidon.reset import ResetPolicy
 
 log = logging.getLogger(__name__)
@@ -103,6 +104,24 @@ def publish_say(text: str, trace_id: str | None = None,
                         hostname=config.BROKER, port=config.PORT, auth=auth)
 
 
+def publish_mute_clear(category: str) -> None:
+    """Delete a retained mute slot (empty retained payload)."""
+    auth = ({"username": config.MQTT_USER, "password": config.MQTT_PASSWORD}
+            if config.MQTT_USER else None)
+    mqtt_publish.single(f"{config.MUTES_TOPIC_PREFIX}/{category}", payload=None,
+                        retain=True, hostname=config.BROKER, port=config.PORT,
+                        auth=auth)
+
+
+def publish_mute_set(category: str, envelope: dict) -> None:
+    """Publish a retained mute envelope."""
+    auth = ({"username": config.MQTT_USER, "password": config.MQTT_PASSWORD}
+            if config.MQTT_USER else None)
+    mqtt_publish.single(f"{config.MUTES_TOPIC_PREFIX}/{category}",
+                        payload=json.dumps(envelope), retain=True,
+                        hostname=config.BROKER, port=config.PORT, auth=auth)
+
+
 def run_briefing(timing_ctx: dict | None = None) -> None:
     """Ported from the bridge: briefing.py handles its own outputs."""
     log.info("triggering daily briefing generation")
@@ -135,20 +154,32 @@ class Poseidon:
 
     def __init__(self, *, channel: CrewChannel, alarm_lane: AlarmLane,
                  publish_say: Callable[..., None],
-                 run_briefing: Callable[[dict | None], None]) -> None:
+                 run_briefing: Callable[[dict | None], None],
+                 mutes: MuteRegistry | None = None) -> None:
         self._channel = channel
         self._alarms = alarm_lane
         self._publish = publish_say
         self._briefing = run_briefing
+        self._mutes = mutes or MuteRegistry()
 
     async def dispatch(self, topic: str, payload: dict, retain: bool = False) -> None:
         if topic.startswith("naturali/alerts/"):
             await self._handle_alert(payload, retain)
+        elif topic.startswith(config.MUTES_TOPIC_PREFIX + "/"):
+            self.handle_mute(topic, payload)
         elif topic == "naturali/intents/ask":
             await self._handle_ask(payload)
         elif topic == "naturali/intents/briefing":
             await asyncio.to_thread(self._briefing,
                                     timing.timing_ctx("briefing", payload))
+        elif topic == "naturali/intents/mute":
+            from datetime import datetime
+            from poseidon.mute_tool import apply_mute_request
+
+            def _pub(category, env):
+                publish_mute_set(category, env) if env is not None else publish_mute_clear(category)
+            apply_mute_request(payload.get("category", ""), payload.get("action", ""),
+                               _pub, datetime.now().astimezone(), config.ROLLOVER_HOUR)
         else:
             log.warning("unhandled topic: %s", topic)
 
@@ -214,6 +245,16 @@ class Poseidon:
                 rc=0,
                 model=prompts.model_for_state(payload.get("state")) or config.MODEL))
 
+    def handle_mute(self, topic: str, payload: dict) -> None:
+        category = topic.rsplit("/", 1)[-1]
+        envelope = parse_mute_envelope(payload) if payload else None
+        self._mutes.apply(category, envelope)
+        for expired in self._mutes.expired_categories():
+            publish_mute_clear(expired)
+            self._mutes.apply(expired, None)
+            log.info("cleared expired mute slot: %s", expired)
+        log.info("mute %s: %s", category, "set" if envelope else "cleared")
+
 
 async def run() -> None:
     config.load_env_file(config.ENV_FILE)
@@ -225,11 +266,13 @@ async def run() -> None:
                               idle_seconds=config.IDLE_RESET_S,
                               rollover_hour=config.ROLLOVER_HOUR),
                           timeout_s=config.ASK_TIMEOUT_S)
+    mute_registry = MuteRegistry()
     app = Poseidon(
         channel=channel,
-        alarm_lane=AlarmLane(),
+        alarm_lane=AlarmLane(is_muted=mute_registry.is_muted),
         publish_say=publish_say,
         run_briefing=run_briefing,
+        mutes=mute_registry,
     )
     loop = asyncio.get_running_loop()
     # eager warm-up (spec §2 "connect once at startup"): the first ask should
@@ -245,6 +288,7 @@ async def run() -> None:
             log.info("connected to %s:%d", config.BROKER, config.PORT)
             client.subscribe(config.INTENTS_TOPIC, qos=1)
             client.subscribe(config.ALERTS_TOPIC, qos=1)
+            client.subscribe(config.MUTES_TOPIC, qos=1)
         else:
             log.error("connection failed rc=%s", rc)
 
