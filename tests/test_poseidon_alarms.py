@@ -90,3 +90,16 @@ def test_unmuted_path_still_narrates_with_predicate_present():
     out = asyncio.run(lane.handle(dict(ENV)))
     assert out == "Battery alarm."
     assert len(calls) == 1
+
+
+def test_muted_path_dedup_still_recorded():
+    # A muted alarm must still be recorded in _seen, so the same path+timestamp
+    # does not re-fire even after the category is later un-muted.
+    fq, calls = fake_query_returning("x")
+    lane = AlarmLane(query_fn=fq, is_muted=lambda path, state: True)
+    env = {**ENV, "state": "warn"}
+    asyncio.run(lane.handle(env))        # first delivery, muted -> recorded, silent
+    lane._is_muted = lambda path, state: False  # un-mute
+    out = asyncio.run(lane.handle(env))  # same ts -> deduped, must not re-fire
+    assert out is None
+    assert len(calls) == 0
