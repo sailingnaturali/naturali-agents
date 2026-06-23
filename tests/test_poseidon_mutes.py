@@ -79,3 +79,19 @@ def test_malformed_expires_fails_open():
     reg.apply("whale-zones", {"category": "whale-zones", "expires": "not-a-date"})
     now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
     assert reg.is_muted("navigation.restrictedArea.abc", "warn", now) is False
+
+
+def test_naive_expires_is_rejected_and_fails_open():
+    # A timezone-naive expiry is ambiguous -> no mute (alarm still speaks), no crash.
+    reg = mutes.MuteRegistry()
+    reg.apply("whale-zones", {"category": "whale-zones", "expires": "2026-06-23T06:00:00"})
+    now = datetime(2026, 6, 22, 20, 40, tzinfo=timezone.utc)
+    assert reg.is_muted("navigation.restrictedArea.abc", "warn", now) is False
+
+
+def test_is_muted_default_now_does_not_raise():
+    # now=None default path must work and not raise on a freshly-muted category.
+    now = datetime.now(timezone.utc)
+    reg = mutes.MuteRegistry()
+    reg.apply("whale-zones", mutes.build_mute_envelope("whale-zones", "voice", now, 6))
+    assert reg.is_muted("navigation.restrictedArea.abc", "warn") is True

@@ -67,9 +67,12 @@ MUTEABLE_STATES = {"alert", "warn"}   # ceiling: alarm/emergency never muted
 
 def _parse_dt(value: str) -> datetime | None:
     try:
-        return datetime.fromisoformat(value)
+        dt = datetime.fromisoformat(value)
     except (ValueError, TypeError):
         return None
+    if dt.tzinfo is None:      # timezone-ambiguous expiry -> reject (fail open)
+        return None
+    return dt
 
 
 class MuteRegistry:
@@ -98,8 +101,12 @@ class MuteRegistry:
         if exp is None:
             return False
         now = now or datetime.now().astimezone()
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
         return now < exp                      # past expires -> not muted
 
     def expired_categories(self, now: datetime | None = None) -> list[str]:
         now = now or datetime.now().astimezone()
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
         return [c for c, exp in self._map.items() if exp <= now]
