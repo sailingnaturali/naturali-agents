@@ -380,3 +380,51 @@ def test_fetch_current_wind_retries_transport_error(monkeypatch):
     assert wind == {"speed_kn": 9.2, "direction_deg": 258.0}
     assert route.call_count == 2
     assert sleeps == [1.0]
+
+
+# ---------------------------------------------------------------------------
+# SDK engine tests
+# ---------------------------------------------------------------------------
+
+import asyncio
+
+from claude_agent_sdk import AssistantMessage, TextBlock
+
+
+def _fake_query_yielding(*texts):
+    async def fake(prompt, options):
+        for t in texts:
+            yield AssistantMessage(
+                content=[TextBlock(text=t)], model="test-model"
+            )
+    return fake
+
+
+def test_sdk_query_collects_assistant_text():
+    fake = _fake_query_yielding("{\"briefing\":", " {}}")
+    out = briefing._sdk_query("prompt", query_fn=fake)
+    assert out == "{\"briefing\": {}}"
+
+
+def test_sdk_query_returns_none_on_error():
+    async def boom(prompt, options):
+        raise RuntimeError("kaput")
+        yield  # pragma: no cover — makes this an async generator
+    assert briefing._sdk_query("prompt", query_fn=boom) is None
+
+
+def test_sdk_query_modernizes_tool_names_in_prompt():
+    seen = {}
+    async def capture(prompt, options):
+        seen["prompt"] = prompt
+        yield AssistantMessage(content=[TextBlock(text="{}")], model="m")
+    briefing._sdk_query("use mcp_weather_get_marine_forecast", query_fn=capture)
+    assert "mcp__weather__get_marine_forecast" in seen["prompt"]
+
+
+def test_briefing_options_scope():
+    opts = briefing._briefing_options()
+    assert set(opts.mcp_servers.keys()) <= {"signalk", "weather"}
+    assert opts.allowed_tools == ["mcp__signalk", "mcp__weather"]
+    assert opts.strict_mcp_config is True
+    assert opts.max_turns > 1

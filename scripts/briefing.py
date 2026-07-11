@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["httpx>=0.27", "paho-mqtt>=2.0", "jinja2>=3.1"]
+# dependencies = ["httpx>=0.27", "paho-mqtt>=2.0", "jinja2>=3.1", "claude-agent-sdk>=0.2.97"]
 # ///
 """Daily briefing generator for the active vessel.
 
 Fetches tides (CHS IWLS) and an hourly wind series, passes a data block to the
-Navigator agent via hermes (which calls weather-mcp itself for wind/swell/buoys),
-then renders the synthesized structured briefing into a self-contained HTML
-document. Routes outputs to HA (HTML scp'd to /config/www + a state sensor),
-Nabu Voice (MQTT TTS), and the briefing archive (SQLite, as deterministic markdown).
+Navigator agent via a one-shot Claude Agent SDK query (which calls weather-mcp
+itself for wind/swell/buoys), then renders the synthesized structured briefing
+into a self-contained HTML document. Routes outputs to HA (HTML scp'd to
+/config/www + a state sensor), Nabu Voice (MQTT TTS), and the briefing archive
+(SQLite, as deterministic markdown).
 
 Usage:
     uv run scripts/briefing.py             # full run
-    uv run scripts/briefing.py --dry-run   # fetch data + print prompt, no hermes
+    uv run scripts/briefing.py --dry-run   # fetch data + print prompt, no engine call
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import math
@@ -34,6 +36,8 @@ from typing import NamedTuple
 import httpx
 import paho.mqtt.publish as mqtt_publish
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -61,7 +65,16 @@ BROKER = os.environ.get("MQTT_BROKER", "192.168.68.90")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 MQTT_USER = os.environ.get("MQTT_USER")
 MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD")
-AGENT_SKILL = "naturali/navigator"
+# The briefing's synthesis query runs one-shot on the Claude Agent SDK with
+# only the two MCP servers the prompt uses. No SOUL/persona: the output is an
+# HTML artifact, not speech.
+BRIEFING_SERVERS = ("signalk", "weather")
+BRIEFING_SYSTEM_PROMPT = (
+    "You are the vessel's data synthesizer producing the daily briefing. "
+    "Use your SignalK and weather tools to gather current vessel state and "
+    "marine forecasts, then answer with exactly the JSON shape the user "
+    "requests — no prose, no markdown fences, JSON only."
+)
 # Direct Ollama endpoint for the structured-output repair pass (bypasses hermes;
 # reformatting needs no tools). qwen2.5:72b is the most capable local model;
 # grammar-constrained decoding guarantees valid JSON regardless.
@@ -515,23 +528,49 @@ def parse_briefing_response(text: str) -> dict | None:
     return None
 
 
-def _hermes_query(prompt: str, timeout: int = 120) -> str | None:
-    """Run one hermes/Navigator query; return raw stdout or None on failure."""
+def _briefing_options() -> ClaudeAgentOptions:
+    from poseidon import config as poseidon_config
+    from poseidon.profiles import load_mcp_servers
+    servers = {name: srv for name, srv in load_mcp_servers().items()
+               if name in BRIEFING_SERVERS}
+    return ClaudeAgentOptions(
+        system_prompt=BRIEFING_SYSTEM_PROMPT,
+        model=poseidon_config.MODEL,
+        mcp_servers=servers,
+        strict_mcp_config=True,
+        allowed_tools=[f"mcp__{s}" for s in BRIEFING_SERVERS],
+        setting_sources=[],
+        permission_mode="bypassPermissions",
+        max_turns=24,
+    )
+
+
+def _sdk_query(prompt: str, timeout: float = 240.0, query_fn=query) -> str | None:
+    """One-shot Navigator synthesis via the Claude Agent SDK.
+
+    Same contract as the old hermes lane: raw response text, or None on any
+    failure (run_navigator falls through to abort; main logs and exits 1).
+    """
+    from poseidon.prompts import modernize_tool_names
+
+    async def _run() -> str:
+        parts: list[str] = []
+        async for message in query_fn(prompt=modernize_tool_names(prompt),
+                                      options=_briefing_options()):
+            if isinstance(message, AssistantMessage):
+                parts.extend(b.text for b in message.content
+                             if isinstance(b, TextBlock))
+        return "".join(parts).strip()
+
     try:
-        result = subprocess.run(
-            ["hermes", "chat", "-Q", "-s", AGENT_SKILL, "-q", prompt],
-            capture_output=True, text=True, timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
+        out = asyncio.run(asyncio.wait_for(_run(), timeout))
+    except asyncio.TimeoutError:
         log.error("Navigator timed out after %ds", timeout)
         return None
-    except FileNotFoundError:
-        log.error("hermes not found on PATH")
+    except Exception as e:
+        log.error("Navigator query failed: %s", e)
         return None
-    if result.returncode != 0:
-        log.error("hermes failed: %s", result.stderr.strip())
-        return None
-    return result.stdout
+    return out or None
 
 
 def repair_to_json(prose: str) -> dict | None:
@@ -583,7 +622,7 @@ def repair_to_json(prose: str) -> dict | None:
 
 def run_navigator(prompt: str) -> dict | None:
     log.info("invoking Navigator agent")
-    raw = _hermes_query(prompt)
+    raw = _sdk_query(prompt)
     if raw is None:
         return None
     parsed = parse_briefing_response(raw)
@@ -1047,7 +1086,7 @@ def render_markdown(briefing: dict) -> str:
     return "\n".join(lines)
 
 
-def main(dry_run: bool = False) -> None:
+def main(dry_run: bool = False, engine_test: bool = False) -> None:
     lat, lon = fetch_position()
     log.info("position: %.4f, %.4f", lat, lon)
 
@@ -1059,6 +1098,11 @@ def main(dry_run: bool = False) -> None:
 
     if dry_run:
         print(prompt)
+        return
+
+    if engine_test:
+        raw = _sdk_query(prompt)
+        print(raw if raw is not None else "ENGINE TEST FAILED (None)")
         return
 
     response = run_navigator(prompt)
@@ -1161,5 +1205,7 @@ def main(dry_run: bool = False) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--engine-test", action="store_true",
+                        help="run only the synthesis query and print the raw response")
     args = parser.parse_args()
-    main(dry_run=args.dry_run)
+    main(dry_run=args.dry_run, engine_test=args.engine_test)
