@@ -27,6 +27,7 @@ import math
 import os
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import time
 from datetime import datetime, timedelta, timezone
@@ -41,6 +42,15 @@ from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, qu
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
+
+
+def _ensure_repo_on_path() -> None:
+    """The PEP 723 script env is isolated from the project env; the in-tree
+    poseidon package (options + tool-name helpers) lives at the repo root."""
+    repo_root = str(Path(__file__).resolve().parent.parent)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
 
 # Load ~/.hermes/.env so the script works when invoked directly (not via the bridge's export)
 _env_file = os.path.expanduser("~/.hermes/.env")
@@ -529,6 +539,7 @@ def parse_briefing_response(text: str) -> dict | None:
 
 
 def _briefing_options() -> ClaudeAgentOptions:
+    _ensure_repo_on_path()
     from poseidon import config as poseidon_config
     from poseidon.profiles import load_mcp_servers
     servers = {name: srv for name, srv in load_mcp_servers().items()
@@ -551,6 +562,7 @@ def _sdk_query(prompt: str, timeout: float = 240.0, query_fn=query) -> str | Non
     Same contract as the old hermes lane: raw response text, or None on any
     failure (run_navigator falls through to abort; main logs and exits 1).
     """
+    _ensure_repo_on_path()
     from poseidon.prompts import modernize_tool_names
 
     async def _run() -> str:
