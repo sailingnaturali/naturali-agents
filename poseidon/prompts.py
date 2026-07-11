@@ -69,13 +69,17 @@ _TOOL_PREFIX_RE = re.compile(
     r"\bmcp_(" + "|".join(sorted(_HERMES_SERVERS, key=len, reverse=True)) + r")_")
 
 
-def _modernize_tool_names(text: str) -> str:
+def modernize_tool_names(text: str) -> str:
     """Rewrite hermes-era tool names (mcp_<server>_<tool>) to the SDK's
     mcp__<server>__<tool> form at assembly time. body.md files are shared
     with hermes and keep the old names; only the assembled prompt changes.
     Prefix-based so wildcard mentions like `mcp_signalk_*` convert too."""
     return _TOOL_PREFIX_RE.sub(
         lambda m: f"mcp__{_HERMES_SERVERS[m.group(1)]}__", text)
+
+
+# hermes-era private name — existing internal callers keep working
+_modernize_tool_names = modernize_tool_names
 
 
 def _read(rel: str) -> str:

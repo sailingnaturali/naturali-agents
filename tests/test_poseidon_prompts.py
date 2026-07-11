@@ -151,3 +151,9 @@ def test_alarm_prompt_no_mute_offer_for_emergency_or_unknown_path():
              "message": "x"}
     assert "mute" not in prompts.alarm_user_prompt(emerg).lower()
     assert "mute" not in prompts.alarm_user_prompt(other).lower()
+
+
+def test_modernize_tool_names_is_public():
+    from poseidon.prompts import modernize_tool_names
+    out = modernize_tool_names("Call `mcp_weather_get_marine_forecast` with lat=1")
+    assert "mcp__weather__get_marine_forecast" in out
