@@ -66,6 +66,7 @@ def crew_options() -> ClaudeAgentOptions:
     return ClaudeAgentOptions(
         system_prompt=prompts.crew_system_prompt(),
         model=config.MODEL,
+        env={"ANTHROPIC_BASE_URL": config.BASE_URL} if config.BASE_URL else {},
         mcp_servers=servers,
         strict_mcp_config=True,
         allowed_tools=NAVIGATOR_TOOLS + ENGINEER_TOOLS + LOGBOOK_TOOLS,

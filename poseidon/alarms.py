@@ -20,6 +20,7 @@ def _alarm_options(state: str) -> ClaudeAgentOptions:
     return ClaudeAgentOptions(
         system_prompt=prompts.ALARM_SYSTEM_PROMPT,
         model=prompts.model_for_state(state) or config.MODEL,
+        env={"ANTHROPIC_BASE_URL": config.BASE_URL} if config.BASE_URL else {},
         mcp_servers={},
         strict_mcp_config=True,
         allowed_tools=[],

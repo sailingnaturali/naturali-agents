@@ -242,6 +242,10 @@ class Poseidon:
 async def run() -> None:
     config.load_env_file(config.ENV_FILE)
     importlib.reload(config)   # constants freeze at import; re-read with env applied
+    if config.PROVIDER != "sdk":
+        log.error("POSEIDON_PROVIDER=%r is not implemented (only 'sdk'); "
+                  "refusing to start", config.PROVIDER)
+        raise SystemExit(2)
     if not os.environ.get("LOGBOOK_SK_TOKEN"):
         log.warning("LOGBOOK_SK_TOKEN not in environment - logbook MCP writes will fail")
     channel = CrewChannel(client_factory=sdk_client_factory,

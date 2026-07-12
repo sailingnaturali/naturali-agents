@@ -30,6 +30,11 @@ MUTES_TOPIC = "naturali/mutes/#"
 MUTES_TOPIC_PREFIX = "naturali/mutes"
 
 MODEL = os.environ.get("POSEIDON_MODEL", "claude-sonnet-4-6")
+# Provider seam (migration-review §4.4): only "sdk" is implemented; the daemon
+# refuses to start on anything else. BASE_URL flows to the CLI subprocess as
+# ANTHROPIC_BASE_URL so the SDK path can be re-pointed without code changes.
+PROVIDER = os.environ.get("POSEIDON_PROVIDER", "sdk")
+BASE_URL = os.environ.get("POSEIDON_BASE_URL", "")
 ASK_TIMEOUT_S = float(os.environ.get("POSEIDON_ASK_TIMEOUT", "60"))
 IDLE_RESET_S = float(os.environ.get("POSEIDON_IDLE_RESET", "1800"))
 ROLLOVER_HOUR = int(os.environ.get("POSEIDON_ROLLOVER_HOUR", "6"))
