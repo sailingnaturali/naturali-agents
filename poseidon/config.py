@@ -1,9 +1,9 @@
 """poseidon/config.py — env-driven settings (mirrors the bridge's style).
 
 POSEIDON_ENV points at a KEY=VALUE file loaded at startup (default:
-~/.poseidon/.env, which holds ANTHROPIC_API_KEY + MQTT creds). load_env_file
-never overrides
-variables already present in the environment (launchd plist wins).
+~/.poseidon/.env, which holds MQTT creds and other service credentials).
+load_env_file never overrides variables already present in the environment
+(launchd plist wins).
 Note: constants (including SAY_TOPIC) freeze at import time — call load_env_file
 before importing modules that read them, or restart the daemon after env changes.
 daemon.run() calls load_env_file then immediately reloads this module via

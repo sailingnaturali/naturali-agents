@@ -105,17 +105,11 @@ export SIGNALK_URL=http://localhost:8765
 # poseidon (see Poseidon runtime) — Poseidon is the ask/alarm agent
 ```
 
-Edit the Navigator skill in `skills/navigator/`, then deploy it to the Hermes runtime:
+Edit the Navigator skill in `skills/navigator/`. The pre-commit hook will
+automatically regenerate `prompts/navigator.md` to keep it in sync:
 
 ```bash
-scripts/deploy-navigator.sh           # rebuild SKILL.md + regenerate prompts/navigator.md
-```
-
-Install the git hooks once per clone so commits that touch the skill auto-rebuild and
-keep `prompts/navigator.md` in sync:
-
-```bash
-scripts/git-hooks/install.sh
+scripts/git-hooks/install.sh           # install the pre-commit hook once per clone
 ```
 
 Run the test suite:
