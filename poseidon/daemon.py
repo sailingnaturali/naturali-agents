@@ -26,6 +26,7 @@ import paho.mqtt.publish as mqtt_publish
 from poseidon import config, prompts, timing
 from poseidon.alarms import AlarmLane
 from poseidon.engine import CrewChannel, sdk_client_factory
+from poseidon.mute_publish import publish_mute_clear, publish_mute_set
 from poseidon.mutes import MuteRegistry, parse_mute_envelope
 from poseidon.reset import ResetPolicy
 
@@ -101,24 +102,6 @@ def publish_say(text: str, trace_id: str | None = None,
     if interim:
         say["interim"] = True
     mqtt_publish.single(config.SAY_TOPIC, payload=json.dumps(say),
-                        hostname=config.BROKER, port=config.PORT, auth=auth)
-
-
-def publish_mute_clear(category: str) -> None:
-    """Delete a retained mute slot (empty retained payload)."""
-    auth = ({"username": config.MQTT_USER, "password": config.MQTT_PASSWORD}
-            if config.MQTT_USER else None)
-    mqtt_publish.single(f"{config.MUTES_TOPIC_PREFIX}/{category}", payload=None,
-                        retain=True, hostname=config.BROKER, port=config.PORT,
-                        auth=auth)
-
-
-def publish_mute_set(category: str, envelope: dict) -> None:
-    """Publish a retained mute envelope."""
-    auth = ({"username": config.MQTT_USER, "password": config.MQTT_PASSWORD}
-            if config.MQTT_USER else None)
-    mqtt_publish.single(f"{config.MUTES_TOPIC_PREFIX}/{category}",
-                        payload=json.dumps(envelope), retain=True,
                         hostname=config.BROKER, port=config.PORT, auth=auth)
 
 

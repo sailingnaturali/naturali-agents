@@ -62,9 +62,7 @@ def load_mcp_servers(path: Path | None = None) -> dict:
 
 
 def crew_options() -> ClaudeAgentOptions:
-    from poseidon.mute_tool import mutes_server
     servers = load_mcp_servers()
-    servers["mutes"] = mutes_server
     return ClaudeAgentOptions(
         system_prompt=prompts.crew_system_prompt(),
         model=config.MODEL,

@@ -110,5 +110,18 @@
       "MNEMOSYNE_LLM_API_KEY": "ollama",
       "MNEMOSYNE_LLM_MODEL": "qwen2.5:14b"
     }
+  },
+  "mutes": {
+    "type": "stdio",
+    "command": "~/.local/bin/uv",
+    "args": [
+      "run",
+      "--directory",
+      "~/src/sailingnaturali/naturali-agents",
+      "python",
+      "-m",
+      "poseidon.mutes_mcp"
+    ],
+    "env": {}
   }
 }
