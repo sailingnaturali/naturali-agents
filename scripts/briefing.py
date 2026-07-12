@@ -52,8 +52,8 @@ def _ensure_repo_on_path() -> None:
         sys.path.insert(0, repo_root)
 
 
-# Load ~/.hermes/.env so the script works when invoked directly (not via the bridge's export)
-_env_file = os.path.expanduser("~/.hermes/.env")
+# Load ~/.poseidon/.env so the script works when invoked directly (not via the daemon's export)
+_env_file = os.path.expanduser("~/.poseidon/.env")
 if os.path.exists(_env_file):
     with open(_env_file) as _f:
         for _line in _f:

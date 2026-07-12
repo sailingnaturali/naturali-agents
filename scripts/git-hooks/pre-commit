@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Keep the Navigator skill and the base persona deployed and in sync on commit.
+# Keep the committed prompt mirrors in sync with the skill source bodies.
 #
-# When a commit touches the Navigator source (or its deploy script / the shared
-# vessel-name resolver), rebuild the runtime SKILL.md and regenerate
-# prompts/navigator.md, then re-stage the regenerated prompt so the committed
-# doc matches what was deployed. When it touches SOUL.md (the base persona Hermes
-# loads on every request) or its deploy script, redeploy ~/.hermes/SOUL.md.
+# When a commit touches the Navigator or Engineer skill source, copy the body.md
+# to prompts/*.md and re-stage so the committed doc matches the source.
+# (The old hermes runtime deploys — deploy-{navigator,engineer,soul}.sh — are
+# removed; Poseidon reads skills/ directly at runtime.)
 #
 # Install: scripts/git-hooks/install.sh  (symlinks this into .git/hooks/)
 set -euo pipefail
@@ -13,21 +12,14 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 changed="$(git diff --cached --name-only --diff-filter=ACMR)"
 
-if printf '%s\n' "$changed" | grep -Eq '^(skills/navigator/|scripts/(deploy-navigator|vessel-name)\.sh$)'; then
-  echo "pre-commit: navigator source changed — deploying skill"
-  bash "$repo_root/scripts/deploy-navigator.sh"
-  # Re-stage the regenerated repo mirror so it lands in this commit.
+if printf '%s\n' "$changed" | grep -Eq '^skills/navigator/'; then
+  echo "pre-commit: navigator source changed — regenerating prompts/navigator.md"
+  cp "$repo_root/skills/navigator/body.md" "$repo_root/prompts/navigator.md"
   git add "$repo_root/prompts/navigator.md"
 fi
 
-if printf '%s\n' "$changed" | grep -Eq '^(skills/engineer/|scripts/(deploy-engineer|vessel-name)\.sh$)'; then
-  echo "pre-commit: engineer source changed — deploying skill"
-  bash "$repo_root/scripts/deploy-engineer.sh"
-  # Re-stage the regenerated repo mirror so it lands in this commit.
+if printf '%s\n' "$changed" | grep -Eq '^skills/engineer/'; then
+  echo "pre-commit: engineer source changed — regenerating prompts/engineer.md"
+  cp "$repo_root/skills/engineer/body.md" "$repo_root/prompts/engineer.md"
   git add "$repo_root/prompts/engineer.md"
-fi
-
-if printf '%s\n' "$changed" | grep -Eq '^(SOUL\.md$|scripts/(deploy-soul|vessel-name)\.sh$)'; then
-  echo "pre-commit: persona source changed — deploying SOUL"
-  bash "$repo_root/scripts/deploy-soul.sh"
 fi

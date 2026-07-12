@@ -87,7 +87,7 @@ uv run scripts/briefing.py
 uv run scripts/briefing.py --dry-run
 ```
 
-Configuration is read from `~/.hermes/.env` (or the process environment) — `SIGNALK_URL`,
+Configuration is read from `~/.poseidon/.env` (or the process environment) — `SIGNALK_URL`,
 `HA_URL` / `HOMEASSISTANT_TOKEN`, `MQTT_BROKER` / `MQTT_PORT` / `MQTT_USER` / `MQTT_PASSWORD`,
 and `BRIEFING_DB_PATH`. See [`.env.example`](.env.example). Each publish step degrades
 independently: a failed HA post or MQTT publish is logged and the run continues.

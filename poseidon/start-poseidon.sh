@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Launched by com.naturali.poseidon launchd agent.
-# Sources POSEIDON_ENV (default ~/.hermes/.env) for API keys + MQTT creds,
+# Sources POSEIDON_ENV (default ~/.poseidon/.env) for API keys + MQTT creds,
 # then starts the Poseidon daemon.
 # Uses full paths because launchd runs with a minimal PATH.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${POSEIDON_ENV:-${HOME}/.hermes/.env}"
+ENV_FILE="${POSEIDON_ENV:-${HOME}/.poseidon/.env}"
 
 if [[ -f "${ENV_FILE}" ]]; then
   set -a

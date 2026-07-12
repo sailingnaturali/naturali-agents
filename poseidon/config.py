@@ -1,8 +1,8 @@
 """poseidon/config.py — env-driven settings (mirrors the bridge's style).
 
 POSEIDON_ENV points at a KEY=VALUE file loaded at startup (default:
-~/.hermes/.env, which already holds ANTHROPIC_API_KEY + MQTT creds — interim
-arrangement until hermes is decommissioned). load_env_file never overrides
+~/.poseidon/.env, which holds ANTHROPIC_API_KEY + MQTT creds). load_env_file
+never overrides
 variables already present in the environment (launchd plist wins).
 Note: constants (including SAY_TOPIC) freeze at import time — call load_env_file
 before importing modules that read them, or restart the daemon after env changes.
@@ -33,7 +33,7 @@ MODEL = os.environ.get("POSEIDON_MODEL", "claude-sonnet-4-6")
 ASK_TIMEOUT_S = float(os.environ.get("POSEIDON_ASK_TIMEOUT", "60"))
 IDLE_RESET_S = float(os.environ.get("POSEIDON_IDLE_RESET", "1800"))
 ROLLOVER_HOUR = int(os.environ.get("POSEIDON_ROLLOVER_HOUR", "6"))
-ENV_FILE = os.environ.get("POSEIDON_ENV", os.path.expanduser("~/.hermes/.env"))
+ENV_FILE = os.environ.get("POSEIDON_ENV", os.path.expanduser("~/.poseidon/.env"))
 
 
 def load_env_file(path: str) -> None:
