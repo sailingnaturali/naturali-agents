@@ -156,6 +156,9 @@ class Poseidon:
             await asyncio.to_thread(self._briefing,
                                     timing.timing_ctx("briefing", payload))
         elif topic == "naturali/intents/mute":
+            # MQTT intent path (HA toggle etc.) — deliberately separate from the
+            # voice path, which reaches the same helpers via the mutes MCP server
+            # (poseidon/mutes_mcp.py). Both are live; neither is stale.
             from datetime import datetime
             from poseidon.mutes import apply_mute_request
 
