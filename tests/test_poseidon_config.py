@@ -11,6 +11,8 @@ def test_defaults(monkeypatch):
                 "POSEIDON_IDLE_RESET", "POSEIDON_ROLLOVER_HOUR"):
         monkeypatch.delenv(var, raising=False)
     cfg = importlib.reload(config)
+    # The one place the shipped default model is pinned (migration-review §4.6);
+    # every other test uses vendor-neutral fixture strings.
     assert cfg.MODEL == "claude-sonnet-4-6"
     assert cfg.ASK_TIMEOUT_S == 60.0
     assert cfg.SAY_TOPIC == "naturali/agents/navigator/say"

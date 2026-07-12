@@ -87,10 +87,10 @@ def test_alarm_user_prompt_quotes_message_and_forbids_detail():
 
 
 def test_model_for_state_severity_routing(monkeypatch):
-    monkeypatch.setenv("ALARM_MODEL", "claude-opus-4-8")
-    monkeypatch.setenv("WARN_MODEL", "")
-    assert prompts.model_for_state("emergency") == "claude-opus-4-8"
-    assert prompts.model_for_state("warn") is None
+    monkeypatch.setenv("ALARM_MODEL", "test-alarm-model")
+    monkeypatch.setenv("WARN_MODEL", "test-warn-model")
+    assert prompts.model_for_state("emergency") == "test-alarm-model"
+    assert prompts.model_for_state("warn") == "test-warn-model"
 
 
 def test_profiles_tool_subsets_disjoint_from_engineer_extras():

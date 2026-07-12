@@ -68,7 +68,7 @@ def test_build_scorecard_aggregates():
         AskResult(ask=a2, observed_tools=["mcp__weather__get_marine_forecast"],
                   observed_args=[{}], dt_total=4.0, is_error=False),
     ]
-    card = build_scorecard(model="claude-sonnet-4-6", results=results)
+    card = build_scorecard(model="test-model", results=results)
     assert isinstance(card, Scorecard)
     assert card.correctness == 1.0
     assert card.error_rate == 0.0

@@ -10,7 +10,7 @@ def test_build_record_core_fields():
         t_ha=100.0, t_receive_wall=100.5,
         dt_hermes=4.2, dt_first_say=1.234567, dt_publish=0.01,
         dt_total=4.5, query_chars=10, response_chars=40, rc=0,
-        model="claude-sonnet-4-6",
+        model="test-model",
     )
     assert rec["trace_id"] == "abc123"
     assert rec["dt_transport"] == 0.5
