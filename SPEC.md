@@ -7,16 +7,16 @@ Persona and voice live in [SOUL.md](SOUL.md); per-agent responsibilities live in
 ## Components
 
 ```
-Home Assistant (Pi 5)        Mac Studio                   Pi 5 / boat
-  voice intent  ──MQTT──▶  mqtt_to_hermes.py  ──exec──▶  Poseidon (ask/alarm agent)
+Home Assistant (Pi 5)        Mac Studio                      data sources
+  voice intent  ──MQTT──▶  poseidon/daemon.py  ─────────▶  Claude Agent SDK
+                            (com.naturali.poseidon)              │
+  daily cron    ────────▶  scripts/briefing.py ─────────────────┤
+                                                                  ▼
+                                                        MCP servers:
+                                                          signalk-mcp   ──▶ SignalK
+                                                          logbook-mcp   ──▶ signalk-logbook (Pi)
                                                               │
-                                                              ▼
-                                                          signalk-mcp ──▶ SignalK server
-                                                          logbook-mcp ──▶ signalk-logbook (Pi)
-                                                              │
-  Piper TTS    ◀──MQTT──   hermes_to_mqtt.py  ◀──stdout──┘
-                            (or mqtt_to_hermes
-                             republish path)
+  Piper TTS    ◀──MQTT──   poseidon/daemon.py  ◀──────────────┘
 ```
 
 ## MQTT contract
@@ -25,11 +25,11 @@ Broker: Mosquitto on `naturalaspi.local:1883` by default. Authenticated brokers 
 
 ### Topics
 
-| Topic                              | Direction | Producer            | Consumer        |
-|------------------------------------|-----------|---------------------|-----------------|
-| `naturali/intents/ask`             | HA → Mac  | HA voice automation | `mqtt_to_hermes`|
-| `naturali/intents/mark_moment`     | HA → Mac  | HA voice automation | `mqtt_to_hermes`|
-| `naturali/agents/{agent}/say`      | Mac → HA  | bridges             | HA Piper TTS    |
+| Topic                              | Direction | Producer            | Consumer             |
+|------------------------------------|-----------|---------------------|----------------------|
+| `naturali/intents/ask`             | HA → Mac  | HA voice automation | `poseidon/daemon.py` |
+| `naturali/intents/mark_moment`     | HA → Mac  | HA voice automation | `poseidon/daemon.py` |
+| `naturali/agents/{agent}/say`      | Mac → HA  | `poseidon/daemon.py` | HA Piper TTS        |
 
 `{agent}` is one of `navigator`, `engineer`, `logbook`. Phase 0 ships `navigator` only.
 
@@ -45,26 +45,21 @@ A non-JSON payload is treated as `{"text": <raw decoded payload>}`. Missing or e
 ```json
 { "agent": "navigator", "text": "string — already TTS-ready" }
 ```
-`text` MUST NOT contain Hermes operational lines (session_id, tool-call markers, config suggestions). Producers are responsible for filtering — see `bridges/_filter.py`.
+`text` MUST NOT contain Hermes operational lines (session_id, tool-call markers, config suggestions). The daemon strips markdown and normalizes units for speech via `poseidon/daemon.py:_strip_markdown()` and `_normalize_speech()`.
 
 QoS 0, no retain.
 
 ## Environment variables
 
-Both bridges read the same set. Defaults match the Phase 0 deployment.
+Poseidon daemon reads these. Defaults match the Phase 0 deployment.
 
-| Var               | Default                       | Used by               | Meaning                                                  |
-|-------------------|-------------------------------|-----------------------|----------------------------------------------------------|
-| `MQTT_BROKER`     | `naturalaspi.local`      | both bridges          | Mosquitto host                                           |
-| `MQTT_PORT`       | `1883`                        | both bridges          | Mosquitto port                                           |
-| `MQTT_USER`       | unset                         | both bridges          | optional broker auth username                            |
-| `MQTT_PASSWORD`   | unset                         | both bridges          | optional broker auth password                            |
-| `AGENT_NAME`      | `navigator`                   | both bridges          | short name; used in topic path and `say` payload         |
-| `HERMES_SKILL`    | `naturali/navigator`          | `mqtt_to_hermes` only | skill identifier passed as `hermes chat -s <skill>`      |
-
-`AGENT_NAME` and `HERMES_SKILL` are independent on purpose: HA addresses a logical agent; Hermes addresses a configured skill. Phase 0 wires `navigator` → `naturali/navigator`.
-
-> The previous single `HERMES_AGENT` env var conflated these two and broke when set. Do not reintroduce.
+| Var               | Default                       | Used by                 | Meaning                                                  |
+|-------------------|-------------------------------|-------------------------|----------------------------------------------------------|
+| `MQTT_BROKER`     | `naturalaspi.local`      | `poseidon/daemon.py`   | Mosquitto host                                           |
+| `MQTT_PORT`       | `1883`                        | `poseidon/daemon.py`   | Mosquitto port                                           |
+| `MQTT_USER`       | unset                         | `poseidon/daemon.py`   | optional broker auth username                            |
+| `MQTT_PASSWORD`   | unset                         | `poseidon/daemon.py`   | optional broker auth password                            |
+| `AGENT_NAME`      | `navigator`                   | `poseidon/daemon.py`   | short name; used in topic path and `say` payload         |
 
 ## Tool surface — signalk-mcp
 
