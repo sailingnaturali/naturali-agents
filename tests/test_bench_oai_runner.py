@@ -47,3 +47,13 @@ def test_auth_headers_from_env(monkeypatch):
 def test_auth_headers_absent_without_env(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     assert oai_runner.auth_headers() == {}
+
+
+def test_chat_payload_includes_reasoning_effort_when_set():
+    p = oai_runner.chat_payload("m", [{"role": "user", "content": "x"}], [], "none")
+    assert p["reasoning_effort"] == "none"
+
+
+def test_chat_payload_omits_reasoning_effort_by_default():
+    p = oai_runner.chat_payload("m", [{"role": "user", "content": "x"}], [])
+    assert "reasoning_effort" not in p

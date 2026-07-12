@@ -38,9 +38,22 @@ def flat_scored_ask(ask: Ask) -> Ask:
     return ask
 
 
+def chat_payload(model: str, messages: list[dict], schemas: list[dict],
+                 reasoning_effort: str | None = None) -> dict:
+    """Build the /chat/completions payload. reasoning_effort is passed only
+    when set — GPT-5.6+ rejects function tools unless it's 'none' (full
+    reasoning + tools needs the Responses API, which this runner predates)."""
+    payload = {"model": model, "messages": messages, "tools": schemas,
+               "tool_choice": "auto", "stream": False}
+    if reasoning_effort is not None:
+        payload["reasoning_effort"] = reasoning_effort
+    return payload
+
+
 async def run_ask_openai(http: httpx.AsyncClient, base_url: str, model: str,
                          system_prompt: str, schemas: list[dict], toolset,
-                         ask: Ask, max_rounds: int = 10) -> AskResult:
+                         ask: Ask, max_rounds: int = 10,
+                         reasoning_effort: str | None = None) -> AskResult:
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": ask.prompt},
@@ -53,8 +66,7 @@ async def run_ask_openai(http: httpx.AsyncClient, base_url: str, model: str,
         for _ in range(max_rounds):
             resp = await http.post(
                 base_url.rstrip("/") + "/chat/completions",
-                json={"model": model, "messages": messages, "tools": schemas,
-                      "tool_choice": "auto", "stream": False},
+                json=chat_payload(model, messages, schemas, reasoning_effort),
             )
             resp.raise_for_status()
             tool_calls, text, _finish = parse_choice(resp.json())
@@ -90,7 +102,8 @@ def auth_headers() -> dict[str, str]:
 
 
 async def run_benchmark_openai(model: str, base_url: str, repeat: int = 1,
-                               asks: list[Ask] | None = None) -> list[AskResult]:
+                               asks: list[Ask] | None = None,
+                               reasoning_effort: str | None = None) -> list[AskResult]:
     asks = asks or load_golden_asks()
     system_prompt = prompts.crew_system_prompt()
     toolset = await create_toolset()
@@ -110,7 +123,8 @@ async def run_benchmark_openai(model: str, base_url: str, repeat: int = 1,
             for _ in range(repeat):
                 for ask in asks:
                     results.append(await run_ask_openai(
-                        http, base_url, model, system_prompt, schemas, toolset, ask))
+                        http, base_url, model, system_prompt, schemas, toolset, ask,
+                        reasoning_effort=reasoning_effort))
             return results
     finally:
         await toolset.aclose()

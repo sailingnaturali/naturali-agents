@@ -39,6 +39,9 @@ def main() -> None:
                         help="agent backend: sdk (Claude Agent SDK) or openai (Ollama /v1)")
     parser.add_argument("--base-url", default="http://localhost:11434/v1",
                         help="OpenAI-compatible base URL (openai backend)")
+    parser.add_argument("--reasoning-effort", default=None,
+                        help="reasoning_effort for the openai backend "
+                             "(GPT-5.6+ requires 'none' for tools on /chat/completions)")
     args = parser.parse_args()
 
     # Env file holds ANTHROPIC_API_KEY (interim ~/.hermes/.env).
@@ -47,7 +50,8 @@ def main() -> None:
     if args.backend == "openai":
         from poseidon.bench.oai_runner import run_benchmark_openai
         results = asyncio.run(
-            run_benchmark_openai(args.model, args.base_url, repeat=args.repeat))
+            run_benchmark_openai(args.model, args.base_url, repeat=args.repeat,
+                                 reasoning_effort=args.reasoning_effort))
     else:
         results = asyncio.run(run_benchmark(args.model, repeat=args.repeat))
     card = build_scorecard(model=args.model, results=results)
