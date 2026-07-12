@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from poseidon.bench import oai_runner
 from poseidon.bench.golden import Ask
 from poseidon.bench.oai_runner import flat_scored_ask, parse_choice
 
@@ -36,3 +37,13 @@ def test_flat_scored_ask_unchanged_without_flat():
     ask = Ask(id="depth", category="engineer-direct", prompt="p",
               expected_tools=("mcp__signalk__depth_state",), multi_tool=False)
     assert flat_scored_ask(ask) is ask
+
+
+def test_auth_headers_from_env(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key-123")
+    assert oai_runner.auth_headers() == {"Authorization": "Bearer test-key-123"}
+
+
+def test_auth_headers_absent_without_env(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert oai_runner.auth_headers() == {}

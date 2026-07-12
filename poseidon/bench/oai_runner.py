@@ -12,6 +12,8 @@ import json
 import time
 from dataclasses import replace
 
+import os
+
 import httpx
 
 from poseidon import prompts
@@ -79,6 +81,14 @@ async def run_ask_openai(http: httpx.AsyncClient, base_url: str, model: str,
                      is_error=is_error, text=text)
 
 
+def auth_headers() -> dict[str, str]:
+    """Bearer auth for hosted OpenAI-compatible endpoints; empty for local
+    (Ollama ignores auth). Reads OPENAI_API_KEY from the environment, which
+    __main__ populates via config.load_env_file."""
+    key = os.environ.get("OPENAI_API_KEY", "")
+    return {"Authorization": f"Bearer {key}"} if key else {}
+
+
 async def run_benchmark_openai(model: str, base_url: str, repeat: int = 1,
                                asks: list[Ask] | None = None) -> list[AskResult]:
     asks = asks or load_golden_asks()
@@ -86,7 +96,8 @@ async def run_benchmark_openai(model: str, base_url: str, repeat: int = 1,
     toolset = await create_toolset()
     try:
         schemas = toolset.openai_schemas()
-        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as http:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0),
+                                     headers=auth_headers()) as http:
             # Throwaway warm-up: load the model off the clock.
             with contextlib.suppress(Exception):
                 await http.post(
