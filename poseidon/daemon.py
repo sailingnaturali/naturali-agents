@@ -174,7 +174,7 @@ class Poseidon:
                                     timing.timing_ctx("briefing", payload))
         elif topic == "naturali/intents/mute":
             from datetime import datetime
-            from poseidon.mute_tool import apply_mute_request
+            from poseidon.mutes import apply_mute_request
 
             def _pub(category, env):
                 publish_mute_set(category, env) if env is not None else publish_mute_clear(category)

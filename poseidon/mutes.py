@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Callable
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +48,33 @@ def build_mute_envelope(category: str, muted_by: str, now: datetime,
         "created": now.astimezone().isoformat(),
         "expires": next_rollover_expires(now, rollover_hour),
     }
+
+
+# --- voice mute requests (moved from mute_tool.py; no SDK dependency) -------
+
+# Friendly spoken names for categories (units/words, never raw slugs/paths).
+_SPOKEN = {"whale-zones": "whale-zone"}
+
+
+def _spoken(category: str) -> str:
+    return _SPOKEN.get(category, category.replace("-", " "))
+
+
+def apply_mute_request(category: str, action: str,
+                       publish: Callable[[str, dict | None], None],
+                       now: datetime, rollover_hour: int) -> str:
+    """Validate + publish a mute change; return a ready-to-speak confirmation."""
+    if category not in ALERT_CATEGORIES:
+        return (f"I don't have an alert category called {category.replace('-', ' ')}. "
+                "I can mute whale-zone alerts.")
+    if action == "mute":
+        env = build_mute_envelope(category, "voice", now, rollover_hour)
+        publish(category, env)
+        return f"{_spoken(category).capitalize()} alerts muted until tomorrow."
+    if action == "unmute":
+        publish(category, None)
+        return f"{_spoken(category).capitalize()} alerts back on."
+    return f"Tell me whether to mute or unmute {_spoken(category)} alerts."
 
 
 def parse_mute_envelope(raw: bytes | dict) -> dict | None:
