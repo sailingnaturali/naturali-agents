@@ -21,7 +21,7 @@ Home Assistant (Pi 5)        Mac Studio                      data sources
 
 ## MQTT contract
 
-Broker: Mosquitto on `naturalaspi.local:1883` by default. Authenticated brokers supported via `MQTT_USER` / `MQTT_PASSWORD`.
+Broker: Mosquitto on `naturalaspi:1883` by default. Authenticated brokers supported via `MQTT_USER` / `MQTT_PASSWORD`.
 
 ### Topics
 
@@ -55,7 +55,7 @@ Poseidon daemon reads these. Defaults match the Phase 0 deployment.
 
 | Var               | Default                       | Used by                 | Meaning                                                  |
 |-------------------|-------------------------------|-------------------------|----------------------------------------------------------|
-| `MQTT_BROKER`     | `naturalaspi.local`      | `poseidon/daemon.py`   | Mosquitto host                                           |
+| `MQTT_BROKER`     | `naturalaspi`      | `poseidon/daemon.py`   | Mosquitto host                                           |
 | `MQTT_PORT`       | `1883`                        | `poseidon/daemon.py`   | Mosquitto port                                           |
 | `MQTT_USER`       | unset                         | `poseidon/daemon.py`   | optional broker auth username                            |
 | `MQTT_PASSWORD`   | unset                         | `poseidon/daemon.py`   | optional broker auth password                            |

@@ -218,8 +218,8 @@ def test_parse_briefing_response_invalid_returns_none():
 
 def test_render_html_links_to_tides_webapp():
     html = briefing.render_html(STRUCTURED["briefing"],
-                                tides_url="http://naturalaspi.local:3000/signalk-tides/")
-    assert 'href="http://naturalaspi.local:3000/signalk-tides/"' in html
+                                tides_url="http://naturalaspi:3000/signalk-tides/")
+    assert 'href="http://naturalaspi:3000/signalk-tides/"' in html
     assert "<svg" not in html or 'class="tide"' not in html
 
 
