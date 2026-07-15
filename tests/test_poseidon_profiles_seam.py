@@ -23,6 +23,17 @@ def test_no_base_url_means_no_env_override(monkeypatch):
     assert alarms._alarm_options("warn").env == {}
 
 
+def test_subagent_tools_not_globally_disallowed():
+    # --disallowedTools is a session-global CLI deny; a subagent's tools= list
+    # cannot re-grant a globally-disallowed tool. Delegating to a subagent whose
+    # tool is disallowed makes the model report the MCP "not connected".
+    opts = profiles.crew_options()
+    disallowed = set(opts.disallowed_tools)
+    for name, agent in opts.agents.items():
+        clashing = [t for t in agent.tools if t in disallowed]
+        assert not clashing, f"{name} subagent tools globally disallowed: {clashing}"
+
+
 def test_base_url_reaches_both_lanes(monkeypatch):
     monkeypatch.setenv("POSEIDON_BASE_URL", "http://localhost:4000")
     _reload()

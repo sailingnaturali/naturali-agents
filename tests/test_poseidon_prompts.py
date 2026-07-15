@@ -114,8 +114,9 @@ def test_crew_options_constructs_with_two_subagents():
         "mutes",  # in-process SDK server (set_alert_mute voice tool)
     }
     assert expected_servers == set(opts.mcp_servers.keys())
-    # hard Navigator scoping: vessel-knowledge and logbook blocked from main context
-    assert "mcp__vessel-knowledge" in opts.disallowed_tools
+    # Soft scoping: no global deny, else it strips the same tools from the
+    # Engineer/Logbook subagents (a global --disallowedTools can't be re-granted).
+    assert opts.disallowed_tools == []
 
 
 def test_load_mcp_servers_expands_home_paths():

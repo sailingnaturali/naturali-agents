@@ -71,11 +71,11 @@ def crew_options() -> ClaudeAgentOptions:
         strict_mcp_config=True,
         allowed_tools=NAVIGATOR_TOOLS + ENGINEER_TOOLS + LOGBOOK_TOOLS,
         tools=NAVIGATOR_TOOLS,
-        # tools= only filters built-ins; MCP scoping needs disallowed_tools.
-        # Engineer/Logbook subagents re-allow these via AgentDefinition.tools.
-        # If live verification shows delegation losing access, drop this line
-        # (documented fallback: soft scoping, full schemas in main context).
-        disallowed_tools=["mcp__vessel-knowledge", "mcp__logbook"],
+        # No disallowed_tools: --disallowedTools is a session-global CLI deny that
+        # the Engineer/Logbook subagents' tools= cannot re-grant, so hard-scoping
+        # logbook/vessel-knowledge out of the Navigator also broke delegation to
+        # those subagents ("MCP not connected"). Soft scoping only — the Navigator
+        # system prompt steers delegation; subagents keep working.
         agents={
             "engineer": AgentDefinition(
                 description=("Vessel systems, equipment knowledge, alarm "
