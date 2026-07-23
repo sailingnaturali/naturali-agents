@@ -45,7 +45,7 @@ A non-JSON payload is treated as `{"text": <raw decoded payload>}`. Missing or e
 ```json
 { "agent": "navigator", "text": "string — already TTS-ready" }
 ```
-`text` MUST NOT contain Hermes operational lines (session_id, tool-call markers, config suggestions). The daemon strips markdown and normalizes units for speech via `poseidon/daemon.py:_strip_markdown()` and `_normalize_speech()`.
+`text` MUST NOT contain agent-runtime operational lines (session_id, tool-call markers, config suggestions). The daemon strips markdown and normalizes units for speech via `poseidon/daemon.py:_strip_markdown()` and `_normalize_speech()`.
 
 QoS 0, no retain.
 
@@ -149,4 +149,4 @@ SOUL is identity and style. The per-agent prompt adds responsibilities, availabl
 
 - Real-time SignalK WebSocket delta subscription (mock and bridges are request/response).
 - Multi-vessel deployments.
-- Persistence of conversation history across Hermes invocations.
+- Persistence of conversation history across agent invocations.

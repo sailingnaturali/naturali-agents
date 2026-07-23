@@ -85,7 +85,7 @@ BRIEFING_SYSTEM_PROMPT = (
     "marine forecasts, then answer with exactly the JSON shape the user "
     "requests — no prose, no markdown fences, JSON only."
 )
-# Direct Ollama endpoint for the structured-output repair pass (bypasses hermes;
+# Direct Ollama endpoint for the structured-output repair pass (no agent runtime;
 # reformatting needs no tools). qwen2.5:72b is the most capable local model;
 # grammar-constrained decoding guarantees valid JSON regardless.
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
@@ -592,8 +592,8 @@ def repair_to_json(prose: str) -> dict | None:
     'JSON only' instruction, yet still produce the right *content*. This pass
     calls Ollama directly with `format` set to BRIEFING_JSON_SCHEMA, so decoding
     is grammar-constrained — the model *cannot* emit anything but schema-valid
-    JSON. Reformatting needs no tools, so bypassing hermes is fine; stays fully
-    offline on the boat.
+    JSON. Reformatting needs no tools, so skipping the agent runtime is fine;
+    stays fully offline on the boat.
     """
     log.info("Navigator response was not JSON — repairing via Ollama structured output")
     payload = {

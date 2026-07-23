@@ -1,6 +1,7 @@
 # naturali-agents
 
-Hermes agent configs, prompts, and tooling for the Naturali boat agent system.
+Agent skills, shared persona, and the Poseidon runtime for the Naturali boat
+agent system — the on-boat AI crew.
 
 Part of the [Naturali](https://sailingnaturali.com) open-source boat agent stack.
 
@@ -21,26 +22,25 @@ generates a scheduled daily briefing.
 ```
 SOUL.md                       ← shared persona, loaded first for every agent
 poseidon/                     ← Poseidon daemon (Claude Agent SDK) — owns all MQTT lanes
-skills/navigator/             ← Navigator skill, built from parts
+skills/<agent>/               ← each agent's skill, built from parts (navigator/, engineer/)
   ├── frontmatter.yaml         ← skill metadata
   ├── body.md                  ← responsibilities + tool surface
-  └── briefing.md              ← daily-briefing instructions
-prompts/navigator.md          ← committed mirror of body.md (regenerated, never hand-edited)
+  └── briefing.md              ← daily-briefing instructions (navigator)
+prompts/<agent>.md            ← committed mirrors of body.md (regenerated, never hand-edited)
 scripts/
   ├── briefing.py              ← daily briefing generator (tides → Navigator → HA/TTS/logbook)
-  ├── deploy-navigator.sh      ← assemble SKILL.md from skills/navigator/ + deploy to Hermes
-  └── git-hooks/               ← pre-commit hook that keeps the deployed skill in sync
+  └── git-hooks/               ← pre-commit hook that keeps the prompts/ mirrors in sync
 dev/
   ├── mock-signalk.py          ← mock SignalK REST server for local dev
-  └── nmea-stream.py           ← NMEA 0183 TCP stream for a real SignalK instance
+  ├── nmea-stream.py           ← synthetic NMEA 0183 TCP stream for a real SignalK instance
+  └── nmea-replay.py           ← replay a recorded NMEA log for moving-passage dev data
 tests/                        ← pytest suite (briefing logic, respx-mocked HTTP)
 ```
 
-The runtime `SKILL.md` is machine-local and not committed. `skills/navigator/` is the
-single source of truth; `scripts/deploy-navigator.sh` assembles it
-(`frontmatter.yaml` + `body.md` + `briefing.md`) into the Hermes skills tree and
-regenerates the committed `prompts/navigator.md` mirror so the documented prompt can
-never drift from what runs.
+Poseidon reads `skills/` directly at runtime — there is no deploy step.
+`skills/<agent>/` is the single source of truth; the pre-commit hook regenerates the
+committed `prompts/<agent>.md` mirror so the documented prompt can never drift from
+what runs.
 
 ## Architecture
 
@@ -71,8 +71,8 @@ composition — in [SPEC.md](SPEC.md).
 
 `scripts/briefing.py` generates the morning briefing. It fetches the nearest CHS tide
 station for the vessel's position, hands a formatted data block to the Navigator skill
-via `hermes` (which calls weather-mcp itself for wind/swell/buoys and SignalK for live
-vessel state), then routes the synthesized briefing to three places: Home Assistant
+via a one-shot Claude Agent SDK query (which calls weather-mcp itself for wind/swell/buoys
+and SignalK for live vessel state), then routes the synthesized briefing to three places: Home Assistant
 Lovelace (REST), Nabu/Piper voice (MQTT), and the logbook (SQLite).
 
 Run it from the CLI with [`uv`](https://docs.astral.sh/uv/) — the script declares its own
@@ -83,7 +83,7 @@ dependencies inline (PEP 723), so no separate install is needed:
 uv run scripts/briefing.py
 
 # Dry run: fetch data and print the prompt that would go to the Navigator,
-# without invoking hermes or publishing anything
+# without invoking the Navigator or publishing anything
 uv run scripts/briefing.py --dry-run
 ```
 
