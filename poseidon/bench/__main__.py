@@ -44,7 +44,7 @@ def main() -> None:
                              "(GPT-5.6+ requires 'none' for tools on /chat/completions)")
     args = parser.parse_args()
 
-    # Env file holds ANTHROPIC_API_KEY (interim ~/.hermes/.env).
+    # ~/.poseidon/.env (subscription auth — no ANTHROPIC_API_KEY).
     config.load_env_file(config.ENV_FILE)
 
     if args.backend == "openai":
