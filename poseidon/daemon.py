@@ -251,6 +251,11 @@ async def run() -> None:
         raise SystemExit(2)
     if not os.environ.get("LOGBOOK_SK_TOKEN"):
         log.warning("LOGBOOK_SK_TOKEN not in environment - logbook MCP writes will fail")
+    if not os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") and not os.environ.get("ANTHROPIC_API_KEY"):
+        log.warning("CLAUDE_CODE_OAUTH_TOKEN not in environment - agent asks fall back to "
+                    "keychain OAuth creds and fail rc=1 whenever the keychain is locked or "
+                    "the stored creds expire (a long-running daemon started before ~/.poseidon/.env "
+                    "gained the token hits exactly this)")
     channel = CrewChannel(client_factory=sdk_client_factory,
                           reset_policy=ResetPolicy(
                               idle_seconds=config.IDLE_RESET_S,
