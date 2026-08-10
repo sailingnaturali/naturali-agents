@@ -1,0 +1,33 @@
+{
+  "model": "claude-sonnet-4-6",
+  "n": 1,
+  "correctness": 1.0,
+  "error_rate": 0.0,
+  "latency_p50": 2.873,
+  "latency_p95": 2.873,
+  "per_ask": [
+    {
+      "id": "no-tool",
+      "category": "baseline",
+      "expected": [],
+      "observed": [],
+      "match": true,
+      "dt_total": 2.873,
+      "is_error": false,
+      "tokens": {
+        "input": 3,
+        "output": 11,
+        "cache_read": 18810,
+        "cache_write": 978
+      },
+      "cost_usd": 0.015126,
+      "answer": "Hello, Captain. All systems nominal.",
+      "truth": ""
+    }
+  ],
+  "arm": "",
+  "tokens_in_mean": 3.0,
+  "tokens_out_mean": 11.0,
+  "cache_read_mean": 18810.0,
+  "cost_usd_total": 0.015126
+}

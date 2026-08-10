@@ -21,6 +21,7 @@ class TurnObservation:
     text: str = ""
     is_error: bool = False
     usage: dict | None = None
+    cost_usd: float = 0.0
 
 
 def _is_tool_use(block) -> bool:
@@ -46,6 +47,7 @@ def collect_turn(messages) -> TurnObservation:
         elif hasattr(message, "is_error"):
             obs.is_error = bool(message.is_error)
             obs.usage = getattr(message, "usage", None)
+            obs.cost_usd = float(getattr(message, "total_cost_usd", 0.0) or 0.0)
     obs.tools = list(tools_by_name)
     obs.tool_inputs = list(tools_by_name.values())
     obs.text = " ".join(texts).strip()

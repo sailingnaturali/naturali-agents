@@ -1,0 +1,1 @@
+[{"id":"no-tool","category":"baseline","prompt":"Say hello in exactly five words. Do not use any tools.","expected_tools":[],"multi_tool":false}]

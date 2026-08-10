@@ -26,6 +26,12 @@ class Ask:
     multi_tool: bool
     expected_args: dict = field(default_factory=dict)
     expected_tools_flat: tuple[str, ...] = ()
+    # Arm experiment: the live SignalK path holding this ask's answer, fetched
+    # at ask time so the report carries ground truth next to the agent's words.
+    # expected_tools is only meaningful for the mcp arm — a Bash arm calls
+    # "Bash" for everything — so answers are graded against truth, not tools.
+    truth_path: str = ""
+    truth_unit: str = ""
 
 
 def load_golden_asks(path: Path | None = None) -> list[Ask]:
@@ -39,6 +45,8 @@ def load_golden_asks(path: Path | None = None) -> list[Ask]:
             multi_tool=bool(row.get("multi_tool", False)),
             expected_args=row.get("expected_args", {}),
             expected_tools_flat=tuple(row.get("expected_tools_flat", ())),
+            truth_path=row.get("truth_path", ""),
+            truth_unit=row.get("truth_unit", ""),
         )
         for row in raw
     ]

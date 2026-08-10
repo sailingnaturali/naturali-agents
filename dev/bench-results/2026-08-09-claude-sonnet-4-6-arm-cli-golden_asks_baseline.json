@@ -1,0 +1,33 @@
+{
+  "model": "claude-sonnet-4-6",
+  "n": 1,
+  "correctness": 1.0,
+  "error_rate": 0.0,
+  "latency_p50": 2.659,
+  "latency_p95": 2.659,
+  "per_ask": [
+    {
+      "id": "no-tool",
+      "category": "baseline",
+      "expected": [],
+      "observed": [],
+      "match": true,
+      "dt_total": 2.659,
+      "is_error": false,
+      "tokens": {
+        "input": 3,
+        "output": 10,
+        "cache_read": 3943,
+        "cache_write": 93
+      },
+      "cost_usd": 0.004756,
+      "answer": "Hello there, welcome aboard sailor!",
+      "truth": ""
+    }
+  ],
+  "arm": "cli",
+  "tokens_in_mean": 3.0,
+  "tokens_out_mean": 10.0,
+  "cache_read_mean": 3943.0,
+  "cost_usd_total": 0.004756
+}

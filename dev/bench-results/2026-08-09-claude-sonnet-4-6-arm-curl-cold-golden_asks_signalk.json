@@ -1,0 +1,275 @@
+{
+  "model": "claude-sonnet-4-6",
+  "n": 12,
+  "correctness": 0.0,
+  "error_rate": 0.0,
+  "latency_p50": 6.977,
+  "latency_p95": 20.6,
+  "per_ask": [
+    {
+      "id": "depth",
+      "category": "shaped-tool",
+      "expected": [
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 6.956,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 207,
+        "cache_read": 7831,
+        "cache_write": 492
+      },
+      "cost_usd": 0.011562,
+      "answer": "You've got about 37.1 metres under the keel right now, so plenty of water beneath you!",
+      "truth": "37.11930121594914"
+    },
+    {
+      "id": "battery",
+      "category": "shaped-tool",
+      "expected": [
+        "mcp__signalk__battery_state"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 10.091,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 473,
+        "cache_read": 8739,
+        "cache_write": 683
+      },
+      "cost_usd": 0.013827,
+      "answer": "The house battery is in good shape \u2014 it's sitting at about 90 percent state of charge with a voltage of 12.40 volts, and it's currently drawing about 2.8 amps (discharging).",
+      "truth": "0.8944878422728708"
+    },
+    {
+      "id": "alarms",
+      "category": "shaped-tool",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 11.651,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 405,
+        "cache_read": 10383,
+        "cache_write": 1037
+      },
+      "cost_usd": 0.015424,
+      "answer": "No alarms, but there is one active warning \u2014 you're currently inside the 400-metre approach distance prohibition zone for Southern Resident Killer Whales, so you'll want to alter course to increase your distance from them. Everything else, including depth and apparent wind speed, is showing normal.",
+      "truth": "{\"environment\": {\"wind\": {\"speedApparent\": {\"value\": {\"state\": \"normal\", \"message\": \"undefined < value < 12.8611\", \"method\": [\"visual\"], \"id\": \"7ed94260-ebbb-406a-b458-9602bfd98e1f\", \"status\": {\"silenced\": false, \"acknowledged\": false, \"canSilence\": true, \"canAcknowledge\": true, \"canClear\": false}}, \"$source\": \"self.notificationhandler\", \"timestamp\": \"2026-08-10T02:38:30.375Z\"}}, \"depth\": {\"belowK"
+    },
+    {
+      "id": "wind-speed",
+      "category": "unit-trap",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 15.92,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 662,
+        "cache_read": 12385,
+        "cache_write": 1095
+      },
+      "cost_usd": 0.020228,
+      "answer": "We're getting about 16.5 knots of true wind, coming from roughly 317 degrees \u2014 that's a northwesterly \u2014 with the apparent wind reading the same at 16.5 knots, well within normal range.",
+      "truth": "8.426324194295264"
+    },
+    {
+      "id": "wind-direction",
+      "category": "unit-trap",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.044,
+      "is_error": false,
+      "tokens": {
+        "input": 3,
+        "output": 32,
+        "cache_read": 7167,
+        "cache_write": 511
+      },
+      "cost_usd": 0.005705,
+      "answer": "I just pulled that data along with the wind speed \u2014 the wind is coming from roughly 317 degrees, which is a northwesterly.",
+      "truth": "5.5269386332909285"
+    },
+    {
+      "id": "fresh-water",
+      "category": "unit-trap",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 6.999,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 185,
+        "cache_read": 15401,
+        "cache_write": 435
+      },
+      "cost_usd": 0.010017,
+      "answer": "The fresh water tank is at about 28 percent \u2014 getting on the low side, so you may want to think about topping up when you get the chance.",
+      "truth": "0.2781963860194625"
+    },
+    {
+      "id": "black-water",
+      "category": "unit-trap",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.672,
+      "is_error": false,
+      "tokens": {
+        "input": 3,
+        "output": 40,
+        "cache_read": 8113,
+        "cache_write": 46
+      },
+      "cost_usd": 0.003319,
+      "answer": "I already have that reading from my last check \u2014 the black water tank is at about 66 percent full, so worth keeping an eye on and pumping out before too long.",
+      "truth": "0.6592888739538038"
+    },
+    {
+      "id": "engine-hours",
+      "category": "long-tail",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 6.949,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 290,
+        "cache_read": 16372,
+        "cache_write": 735
+      },
+      "cost_usd": 0.013684,
+      "answer": "The port saildrive has about 2,097 hours on it \u2014 and for reference, the starboard is just a little behind at about 2,096 hours.",
+      "truth": "7549982"
+    },
+    {
+      "id": "are-we-moving",
+      "category": "long-tail",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 6.7,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 180,
+        "cache_read": 17925,
+        "cache_write": 447
+      },
+      "cost_usd": 0.010771,
+      "answer": "We're sitting still \u2014 speed over ground is reading zero knots.",
+      "truth": "0"
+    },
+    {
+      "id": "position",
+      "category": "long-tail",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 5.534,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 174,
+        "cache_read": 18706,
+        "cache_write": 304
+      },
+      "cost_usd": 0.010058,
+      "answer": "We're currently at 48 degrees 24.9 minutes North, 123 degrees 16.6 minutes West \u2014 that puts us in the waters around Victoria, British Columbia, which lines up with that Southern Resident Killer Whale restricted area warning we saw earlier.",
+      "truth": "{\"latitude\": 48.4147038473473, \"longitude\": -123.2758883379383}"
+    },
+    {
+      "id": "tide-state",
+      "category": "long-tail",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 10.082,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 394,
+        "cache_read": 19362,
+        "cache_write": 1030
+      },
+      "cost_usd": 0.017911,
+      "answer": "The tide is coming in \u2014 according to the Oak Bay station, we're currently at 3.3 metres and rising, with high water expected in about 1 hour and 27 minutes at a height of 3.37 metres.",
+      "truth": "\"rising\""
+    },
+    {
+      "id": "systems-check",
+      "category": "multi",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 26.319,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 1185,
+        "cache_read": 21586,
+        "cache_write": 3920
+      },
+      "cost_usd": 0.047783,
+      "answer": "Sure, let me grab everything fresh all at once! Here's your overnight systems check \u2014 all readings are live:\n\n**\u2693 Safety**\n- Depth below keel: 36.3 metres \u2014 good and clear\n- Wind: 16.6 knots true from 313 degrees (north-northwesterly) \u2014 all normal\n- \u26a0\ufe0f **Active warning:** You're still inside the 400-metre Southern Resident Killer Whale approach prohibition \u2014 worth sorting before you settle in\n\n**\ud83d\udd0b Power**\n- House battery: 89 percent, 12.42 volts, drawing about 3.0 amps \u2014 healthy for the night\n\n**\ud83d\udca7 Tanks**\n- Fresh water: 28 percent \u2014 low, plan to top up soon\n- Black water: 66 percent \u2014 not urgent, but don't leave it too many more days\n\n**\ud83c\udf0a Tide**\n- Rising, at 3.3 metres now, hitting high water in about 1 hour 26 minutes \u2014 your anchor scope should be good, but worth a quick check\n\nOverall she's in good shape \u2014 the main things to sort are that killer whale zone warning and the fresh water level. Sleep well!",
+      "truth": "{\"environment\": {\"wind\": {\"speedApparent\": {\"value\": {\"state\": \"normal\", \"message\": \"undefined < value < 12.8611\", \"method\": [\"visual\"], \"id\": \"7ed94260-ebbb-406a-b458-9602bfd98e1f\", \"status\": {\"silenced\": false, \"acknowledged\": false, \"canSilence\": true, \"canAcknowledge\": true, \"canClear\": false}}, \"$source\": \"self.notificationhandler\", \"timestamp\": \"2026-08-10T02:38:30.375Z\"}}, \"depth\": {\"belowK"
+    }
+  ],
+  "arm": "curl-cold",
+  "tokens_in_mean": 3.8,
+  "tokens_out_mean": 352.2,
+  "cache_read_mean": 13664.2,
+  "cost_usd_total": 0.180288
+}

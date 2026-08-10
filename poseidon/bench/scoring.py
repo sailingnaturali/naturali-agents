@@ -24,6 +24,23 @@ class AskResult:
     dt_total: float
     is_error: bool
     text: str = ""
+    usage: dict | None = None
+    cost_usd: float = 0.0
+    truth: str = ""          # live SignalK value at ask time, for hand-grading
+
+
+def _tokens(usage: dict | None) -> dict:
+    """Flatten an SDK usage dict. Cache reads are counted separately because a
+    warm session bills most of its input at the cache rate — lumping them in
+    would hide exactly the cost this experiment is about (schemas resident in
+    every turn's prompt)."""
+    u = usage or {}
+    return {
+        "input": int(u.get("input_tokens", 0) or 0),
+        "output": int(u.get("output_tokens", 0) or 0),
+        "cache_read": int(u.get("cache_read_input_tokens", 0) or 0),
+        "cache_write": int(u.get("cache_creation_input_tokens", 0) or 0),
+    }
 
 
 @dataclass
@@ -35,6 +52,13 @@ class Scorecard:
     latency_p50: float
     latency_p95: float
     per_ask: list[dict] = field(default_factory=list)
+    # Arm experiment (MCP vs CLI): defaulted so old scorecard JSON still loads
+    # through Scorecard(**data) in __main__._load_baseline.
+    arm: str = ""
+    tokens_in_mean: float = 0.0
+    tokens_out_mean: float = 0.0
+    cache_read_mean: float = 0.0
+    cost_usd_total: float = 0.0
 
 
 def score_ask(ask: Ask, observed_tools: list[str],
@@ -66,7 +90,7 @@ def percentile(values: list[float], p: float) -> float:
     return ordered[lo] + (ordered[hi] - ordered[lo]) * (rank - lo)
 
 
-def build_scorecard(model: str, results: list[AskResult]) -> Scorecard:
+def build_scorecard(model: str, results: list[AskResult], arm: str = "") -> Scorecard:
     n = len(results)
     passes = sum(
         1 for r in results
@@ -83,9 +107,15 @@ def build_scorecard(model: str, results: list[AskResult]) -> Scorecard:
             "match": (not r.is_error) and score_ask(r.ask, r.observed_tools, r.observed_args),
             "dt_total": round(r.dt_total, 3),
             "is_error": r.is_error,
+            "tokens": _tokens(r.usage),
+            "cost_usd": round(r.cost_usd, 6),
+            "answer": r.text,
+            "truth": r.truth,
         }
         for r in results
     ]
+    toks = [_tokens(r.usage) for r in results]
+    mean = lambda key: (sum(t[key] for t in toks) / len(toks)) if toks else 0.0  # noqa: E731
     return Scorecard(
         model=model,
         n=n,
@@ -94,4 +124,9 @@ def build_scorecard(model: str, results: list[AskResult]) -> Scorecard:
         latency_p50=round(percentile(latencies, 50), 3),
         latency_p95=round(percentile(latencies, 95), 3),
         per_ask=per_ask,
+        arm=arm,
+        tokens_in_mean=round(mean("input"), 1),
+        tokens_out_mean=round(mean("output"), 1),
+        cache_read_mean=round(mean("cache_read"), 1),
+        cost_usd_total=round(sum(r.cost_usd for r in results), 6),
     )

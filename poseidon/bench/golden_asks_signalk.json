@@ -1,0 +1,110 @@
+[
+  {
+    "id": "depth",
+    "category": "shaped-tool",
+    "prompt": "What's the depth under the keel right now?",
+    "expected_tools": ["mcp__signalk__depth_state"],
+    "truth_path": "environment.depth.belowKeel",
+    "truth_unit": "m",
+    "multi_tool": false
+  },
+  {
+    "id": "battery",
+    "category": "shaped-tool",
+    "prompt": "How's the house battery doing?",
+    "expected_tools": ["mcp__signalk__battery_state"],
+    "truth_path": "electrical.batteries.house.capacity.stateOfCharge",
+    "truth_unit": "ratio->percent",
+    "multi_tool": false
+  },
+  {
+    "id": "alarms",
+    "category": "shaped-tool",
+    "prompt": "Is anything wrong? Any active alarms?",
+    "expected_tools": ["mcp__signalk__get_active_alarms"],
+    "truth_path": "notifications",
+    "truth_unit": "subtree",
+    "multi_tool": false
+  },
+  {
+    "id": "wind-speed",
+    "category": "unit-trap",
+    "prompt": "How much wind are we getting?",
+    "expected_tools": ["mcp__signalk__read_sensor"],
+    "truth_path": "environment.wind.speedTrue",
+    "truth_unit": "m/s->knots",
+    "multi_tool": false
+  },
+  {
+    "id": "wind-direction",
+    "category": "unit-trap",
+    "prompt": "Which direction is the wind coming from?",
+    "expected_tools": ["mcp__signalk__read_sensor"],
+    "truth_path": "environment.wind.directionTrue",
+    "truth_unit": "rad->deg",
+    "multi_tool": false
+  },
+  {
+    "id": "fresh-water",
+    "category": "unit-trap",
+    "prompt": "How much fresh water is left in the tank?",
+    "expected_tools": ["mcp__signalk__read_sensor"],
+    "truth_path": "tanks.freshWater.0.currentLevel",
+    "truth_unit": "ratio->percent",
+    "multi_tool": false
+  },
+  {
+    "id": "black-water",
+    "category": "unit-trap",
+    "prompt": "How full is the black water tank?",
+    "expected_tools": ["mcp__signalk__read_sensor"],
+    "truth_path": "tanks.blackWater.0.currentLevel",
+    "truth_unit": "ratio->percent",
+    "multi_tool": false
+  },
+  {
+    "id": "engine-hours",
+    "category": "long-tail",
+    "prompt": "How many hours are on the port saildrive?",
+    "expected_tools": ["mcp__signalk__read_sensor"],
+    "truth_path": "propulsion.port.runTime",
+    "truth_unit": "s->hours",
+    "multi_tool": false
+  },
+  {
+    "id": "are-we-moving",
+    "category": "long-tail",
+    "prompt": "Are we moving, or are we sitting still?",
+    "expected_tools": ["mcp__signalk__read_sensor"],
+    "truth_path": "navigation.speedOverGround",
+    "truth_unit": "m/s->knots",
+    "multi_tool": false
+  },
+  {
+    "id": "position",
+    "category": "long-tail",
+    "prompt": "Where are we right now?",
+    "expected_tools": ["mcp__signalk__read_sensor"],
+    "truth_path": "navigation.position",
+    "truth_unit": "lat/lon",
+    "multi_tool": false
+  },
+  {
+    "id": "tide-state",
+    "category": "long-tail",
+    "prompt": "Is the tide coming in or going out?",
+    "expected_tools": ["mcp__signalk__read_sensor"],
+    "truth_path": "environment.tide.state",
+    "truth_unit": "string",
+    "multi_tool": false
+  },
+  {
+    "id": "systems-check",
+    "category": "multi",
+    "prompt": "Give me a quick systems check before I turn in for the night.",
+    "expected_tools": ["mcp__signalk__get_active_alarms"],
+    "truth_path": "notifications",
+    "truth_unit": "subtree",
+    "multi_tool": true
+  }
+]
