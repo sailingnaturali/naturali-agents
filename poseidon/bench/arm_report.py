@@ -40,6 +40,18 @@ def _total_in(card: dict) -> float:
     return card["tokens_in_mean"] + card["cache_read_mean"]
 
 
+def _session_in(card: dict) -> int:
+    """Billed input across the whole run. Falls back to mean x n for scorecards
+    written before session totals were recorded."""
+    if card.get("tokens_in_total") or card.get("cache_read_total"):
+        return card.get("tokens_in_total", 0) + card.get("cache_read_total", 0)
+    return round(_total_in(card) * card["n"])
+
+
+def _per_ask_cost(card: dict) -> float:
+    return card.get("cost_usd_mean") or (card.get("cost_usd_total", 0.0) / (card["n"] or 1))
+
+
 def render(cards: dict[str, dict]) -> str:
     arms = [a for a in ARM_ORDER if a in cards] + \
            [a for a in cards if a not in ARM_ORDER]
@@ -50,18 +62,39 @@ def render(cards: dict[str, dict]) -> str:
     lines = [
         "## MCP vs CLI — tool-delivery arms",
         "",
+        "### Per turn — what one ask costs",
+        "",
         "| arm | n | in+cache/ask | Δ vs cheapest | out/ask | p50 (s) | cost/ask | errors |",
         "|-----|---|--------------|---------------|---------|---------|----------|--------|",
     ]
     for arm in arms:
         c = cards[arm]
-        n = c["n"] or 1
         billed = _total_in(c)
         lines.append(
             f"| {arm} | {c['n']} | {billed:,.0f} | "
             f"+{billed - cheapest:,.0f} | {c['tokens_out_mean']:,.0f} | "
-            f"{c['latency_p50']:.2f} | ${c['cost_usd_total'] / n:.4f} | "
+            f"{c['latency_p50']:.2f} | ${_per_ask_cost(c):.4f} | "
             f"{c['error_rate'] * 100:.0f}% |"
+        )
+
+    # The session view is the one that matches a bill. A resident schema is
+    # billed every turn, so its cost grows with conversation length — a
+    # per-ask mean divides that back out and makes it look smaller than it is.
+    session_cheapest = min(_session_in(cards[a]) for a in arms)
+    lines += [
+        "",
+        "### Per session — what holding the whole conversation costs",
+        "",
+        "| arm | asks | in+cache total | Δ vs cheapest | out total | session cost |",
+        "|-----|------|----------------|---------------|-----------|--------------|",
+    ]
+    for arm in arms:
+        c = cards[arm]
+        billed = _session_in(c)
+        lines.append(
+            f"| {arm} | {c['n']} | {billed:,} | +{billed - session_cheapest:,} | "
+            f"{c.get('tokens_out_total', 0):,} | "
+            f"${c.get('cost_usd_session') or c.get('cost_usd_total', 0):.4f} |"
         )
 
     lines += ["", "### Per-ask answers vs live truth", ""]

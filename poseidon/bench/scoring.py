@@ -25,7 +25,8 @@ class AskResult:
     is_error: bool
     text: str = ""
     usage: dict | None = None
-    cost_usd: float = 0.0
+    cost_usd: float = 0.0            # this turn alone (differenced by the runner)
+    cost_usd_session: float = 0.0    # cumulative session cost as the SDK reported it
     truth: str = ""          # live SignalK value at ask time, for hand-grading
 
 
@@ -55,10 +56,22 @@ class Scorecard:
     # Arm experiment (MCP vs CLI): defaulted so old scorecard JSON still loads
     # through Scorecard(**data) in __main__._load_baseline.
     arm: str = ""
+    # --- per turn (means over asks): what one ask costs ---
     tokens_in_mean: float = 0.0
     tokens_out_mean: float = 0.0
     cache_read_mean: float = 0.0
-    cost_usd_total: float = 0.0
+    cache_write_mean: float = 0.0
+    cost_usd_mean: float = 0.0
+    # --- per session (totals over the run): what holding a conversation costs ---
+    # The two views answer different questions, and the fleet-vs-arm gap only
+    # shows up in the session one — a resident tool schema is billed on every
+    # turn, so its cost scales with conversation length, not with ask count.
+    tokens_in_total: int = 0
+    tokens_out_total: int = 0
+    cache_read_total: int = 0
+    cache_write_total: int = 0
+    cost_usd_total: float = 0.0      # sum of per-turn costs
+    cost_usd_session: float = 0.0    # final cumulative figure the SDK reported
 
 
 def score_ask(ask: Ask, observed_tools: list[str],
@@ -109,13 +122,15 @@ def build_scorecard(model: str, results: list[AskResult], arm: str = "") -> Scor
             "is_error": r.is_error,
             "tokens": _tokens(r.usage),
             "cost_usd": round(r.cost_usd, 6),
+            "cost_usd_session": round(r.cost_usd_session, 6),
             "answer": r.text,
             "truth": r.truth,
         }
         for r in results
     ]
     toks = [_tokens(r.usage) for r in results]
-    mean = lambda key: (sum(t[key] for t in toks) / len(toks)) if toks else 0.0  # noqa: E731
+    total = lambda key: sum(t[key] for t in toks)                       # noqa: E731
+    mean = lambda key: (total(key) / len(toks)) if toks else 0.0        # noqa: E731
     return Scorecard(
         model=model,
         n=n,
@@ -128,5 +143,12 @@ def build_scorecard(model: str, results: list[AskResult], arm: str = "") -> Scor
         tokens_in_mean=round(mean("input"), 1),
         tokens_out_mean=round(mean("output"), 1),
         cache_read_mean=round(mean("cache_read"), 1),
+        cache_write_mean=round(mean("cache_write"), 1),
+        cost_usd_mean=round((sum(r.cost_usd for r in results) / n) if n else 0.0, 6),
+        tokens_in_total=total("input"),
+        tokens_out_total=total("output"),
+        cache_read_total=total("cache_read"),
+        cache_write_total=total("cache_write"),
         cost_usd_total=round(sum(r.cost_usd for r in results), 6),
+        cost_usd_session=round(max((r.cost_usd_session for r in results), default=0.0), 6),
     )

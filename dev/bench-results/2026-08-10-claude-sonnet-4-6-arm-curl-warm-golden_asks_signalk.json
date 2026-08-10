@@ -1,0 +1,296 @@
+{
+  "model": "claude-sonnet-4-6",
+  "n": 12,
+  "correctness": 0.0,
+  "error_rate": 0.0,
+  "latency_p50": 6.402,
+  "latency_p95": 18.807,
+  "per_ask": [
+    {
+      "id": "depth",
+      "category": "shaped-tool",
+      "expected": [
+        "mcp__signalk__depth_state"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 5.007,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 195,
+        "cache_read": 8551,
+        "cache_write": 519
+      },
+      "cost_usd": 0.017624,
+      "cost_usd_session": 0.017624,
+      "answer": "You have **37.4 metres** of water beneath the keel \u2014 plenty of depth, and well clear of any shoaling warnings.",
+      "truth": "36.562610551426545"
+    },
+    {
+      "id": "battery",
+      "category": "shaped-tool",
+      "expected": [
+        "mcp__signalk__battery_state"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 6.849,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 413,
+        "cache_read": 9473,
+        "cache_write": 789
+      },
+      "cost_usd": 0.013783,
+      "cost_usd_session": 0.031407,
+      "answer": "The house battery is at **66 percent** state of charge, reading **12.38 volts**, and currently drawing **2.97 amps** \u2014 so it's in a gentle discharge state. Not critical, but worth keeping an eye on if you're not charging soon.",
+      "truth": "0.6630856607541114"
+    },
+    {
+      "id": "alarms",
+      "category": "shaped-tool",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 8.746,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 455,
+        "cache_read": 11085,
+        "cache_write": 923
+      },
+      "cost_usd": 0.0157,
+      "cost_usd_session": 0.047107,
+      "answer": "There are no critical system alarms, but there are **two active navigation alerts** worth your attention:\n\n1. \ud83d\udd34 **Alert:** You are inside the **Haro Strait and Boundary Pass Slowdown Zone** \u2014 this is a voluntary ECHO Program speed restriction area.\n2. \ud83d\udfe1 **Warning:** You are within the **400-metre approach distance prohibition for Southern Resident Killer Whales** \u2014 entry into this zone is restricted.\n\nWind and depth readings are both sitting in normal ranges, so no concerns there.",
+      "truth": "{\"environment\": {\"wind\": {\"speedApparent\": {\"value\": {\"state\": \"normal\", \"message\": \"undefined < value < 12.8611\", \"method\": [\"visual\"], \"id\": \"e9caeadd-a45e-4dc8-bb14-d1487931d8dd\", \"status\": {\"silenced\": false, \"acknowledged\": false, \"canSilence\": true, \"canAcknowledge\": true, \"canClear\": false}}, \"$source\": \"self.notificationhandler\", \"timestamp\": \"2026-08-10T10:04:07.055Z\"}}, \"depth\": {\"belowK"
+    },
+    {
+      "id": "wind-speed",
+      "category": "unit-trap",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 12.035,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 699,
+        "cache_read": 13171,
+        "cache_write": 1388
+      },
+      "cost_usd": 0.022776,
+      "cost_usd_session": 0.069884,
+      "answer": "True wind is blowing at **16.4 knots** from **312 degrees** \u2014 that's out of the northwest \u2014 with an apparent wind speed of **10.4 knots** coming from nearly dead astern. Well within comfortable sailing conditions!",
+      "truth": "8.466571527506954"
+    },
+    {
+      "id": "wind-direction",
+      "category": "unit-trap",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [],
+      "match": false,
+      "dt_total": 2.967,
+      "is_error": false,
+      "tokens": {
+        "input": 3,
+        "output": 106,
+        "cache_read": 7817,
+        "cache_write": 275
+      },
+      "cost_usd": 0.005594,
+      "cost_usd_session": 0.075478,
+      "answer": "I already have that from my last reading \u2014 the wind is coming from **312 degrees true**, which is out of the **northwest**.",
+      "truth": "5.513394469997548"
+    },
+    {
+      "id": "fresh-water",
+      "category": "unit-trap",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 8.404,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 194,
+        "cache_read": 16303,
+        "cache_write": 391
+      },
+      "cost_usd": 0.010159,
+      "cost_usd_session": 0.085637,
+      "answer": "The fresh water tank is at **26 percent** \u2014 getting on the low side, so you may want to think about topping up when you get the chance.",
+      "truth": "0.26449287148145534"
+    },
+    {
+      "id": "black-water",
+      "category": "unit-trap",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 9.411,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 173,
+        "cache_read": 17012,
+        "cache_write": 279
+      },
+      "cost_usd": 0.009385,
+      "cost_usd_session": 0.095021,
+      "answer": "The black water tank is at **67 percent** \u2014 getting fairly full, so you'll want to plan a pump-out soon, especially given you're currently in a restricted area near Southern Resident Killer Whales where discharge would be a concern.",
+      "truth": "0.6698948580892771"
+    },
+    {
+      "id": "engine-hours",
+      "category": "long-tail",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 4.555,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 226,
+        "cache_read": 17592,
+        "cache_write": 370
+      },
+      "cost_usd": 0.0109,
+      "cost_usd_session": 0.105921,
+      "answer": "The port saildrive has **2,102.8 hours** on it.",
+      "truth": "7570022"
+    },
+    {
+      "id": "are-we-moving",
+      "category": "long-tail",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 4.957,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 207,
+        "cache_read": 18329,
+        "cache_write": 363
+      },
+      "cost_usd": 0.010794,
+      "cost_usd_session": 0.116714,
+      "answer": "We're moving \u2014 currently making **6.1 knots** over the ground.",
+      "truth": "3.1163537815727613"
+    },
+    {
+      "id": "position",
+      "category": "long-tail",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 5.955,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 200,
+        "cache_read": 19059,
+        "cache_write": 376
+      },
+      "cost_usd": 0.010986,
+      "cost_usd_session": 0.1277,
+      "answer": "We're currently at **48\u00b0 45.7' North, 123\u00b0 3.1' West** \u2014 that puts us in **Haro Strait**, between Vancouver Island and the San Juan Islands, which lines up with those restricted area alerts we saw earlier.",
+      "truth": "{\"latitude\": 48.76210160826279, \"longitude\": -123.05199300547898}"
+    },
+    {
+      "id": "tide-state",
+      "category": "long-tail",
+      "expected": [
+        "mcp__signalk__read_sensor"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 5.254,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 167,
+        "cache_read": 19812,
+        "cache_write": 272
+      },
+      "cost_usd": 0.010093,
+      "cost_usd_session": 0.137793,
+      "answer": "The tide is currently **going out** \u2014 it's falling at our position in Haro Strait.",
+      "truth": "\"falling\""
+    },
+    {
+      "id": "systems-check",
+      "category": "multi",
+      "expected": [
+        "mcp__signalk__get_active_alarms"
+      ],
+      "observed": [
+        "Bash"
+      ],
+      "match": false,
+      "dt_total": 27.084,
+      "is_error": false,
+      "tokens": {
+        "input": 4,
+        "output": 1812,
+        "cache_read": 20326,
+        "cache_write": 3064
+      },
+      "cost_usd": 0.051674,
+      "cost_usd_session": 0.189467,
+      "answer": "Here's your full systems check \u2014 good night reading! \ud83c\udf19\n\n---\n\n**\ud83e\udded Navigation**\n- Speed over ground: **6.1 knots**, heading **129 degrees true** (southeast)\n- Position: Haro Strait, 48\u00b0 45.7' N, 123\u00b0 3.1' W\n- Tide: **falling**\n\n**\u2693 Safety / Depth**\n- Depth below keel: **36.7 metres** \u2705\n\n**\ud83d\udca8 Wind**\n- True wind speed: **16.6 knots** \u2705\n\n**\ud83d\udd0b Electrical**\n- House battery: **66 percent**, **12.42 volts** \u2014 discharging, worth putting on charge overnight \u26a0\ufe0f\n\n**\ud83d\udebf Tanks**\n- Fresh water: **26 percent** \u2014 running low, plan to top up soon \u26a0\ufe0f\n- Black water: **67 percent** \u2014 plan a pump-out at next opportunity \u26a0\ufe0f\n\n**\ud83d\udea8 Active Alerts**\n- \ud83d\udd34 Inside the **Haro Strait ECHO Program Slowdown Zone** (voluntary speed restriction)\n- \ud83d\udfe1 Within **400 metres of the Southern Resident Killer Whale prohibition zone**\n\n---\n\nEverything is structurally safe, but I'd recommend getting the battery on charge before you turn in. Sleep well!",
+      "truth": "{\"environment\": {\"wind\": {\"speedApparent\": {\"value\": {\"state\": \"normal\", \"message\": \"undefined < value < 12.8611\", \"method\": [\"visual\"], \"id\": \"e9caeadd-a45e-4dc8-bb14-d1487931d8dd\", \"status\": {\"silenced\": false, \"acknowledged\": false, \"canSilence\": true, \"canAcknowledge\": true, \"canClear\": false}}, \"$source\": \"self.notificationhandler\", \"timestamp\": \"2026-08-10T10:04:07.055Z\"}}, \"depth\": {\"belowK"
+    }
+  ],
+  "arm": "curl-warm",
+  "tokens_in_mean": 3.9,
+  "tokens_out_mean": 403.9,
+  "cache_read_mean": 14877.5,
+  "cache_write_mean": 750.8,
+  "cost_usd_mean": 0.015789,
+  "tokens_in_total": 47,
+  "tokens_out_total": 4847,
+  "cache_read_total": 178530,
+  "cache_write_total": 9009,
+  "cost_usd_total": 0.189467,
+  "cost_usd_session": 0.189467
+}

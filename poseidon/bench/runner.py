@@ -81,12 +81,16 @@ async def run_benchmark(model: str, repeat: int = 1,
 
         results: list[AskResult] = []
         # ResultMessage.total_cost_usd is CUMULATIVE for the session, not the
-        # turn — summing it raw gives a triangular over-count. Difference it.
+        # turn. Keep BOTH views: the cumulative figure is what a session
+        # actually costs to run, the differenced figure is what one ask costs.
+        # Summing the cumulative one would be a triangular over-count.
         prev_cost = 0.0
         for _ in range(repeat):
             for ask in asks:
                 result = await _run_one(client, ask)
-                result.cost_usd, prev_cost = max(result.cost_usd - prev_cost, 0.0), result.cost_usd
+                result.cost_usd_session = result.cost_usd      # as reported
+                result.cost_usd = max(result.cost_usd_session - prev_cost, 0.0)
+                prev_cost = result.cost_usd_session
                 results.append(result)
         return results
     finally:

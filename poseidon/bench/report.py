@@ -26,8 +26,12 @@ def render_markdown(card: Scorecard, run_date: str) -> str:
     ]
     if card.arm:
         lines += [
-            f"- Tokens/ask: in {card.tokens_in_mean:.0f} | out {card.tokens_out_mean:.0f} "
-            f"| cache-read {card.cache_read_mean:.0f} | run cost ${card.cost_usd_total:.4f}",
+            f"- **Per turn** (mean/ask): in {card.tokens_in_mean:.0f} | "
+            f"out {card.tokens_out_mean:.0f} | cache-read {card.cache_read_mean:.0f} | "
+            f"cache-write {card.cache_write_mean:.0f} | ${card.cost_usd_mean:.4f}",
+            f"- **Per session** ({card.n} asks): in {card.tokens_in_total:,} | "
+            f"out {card.tokens_out_total:,} | cache-read {card.cache_read_total:,} | "
+            f"cache-write {card.cache_write_total:,} | ${card.cost_usd_session:.4f}",
             "",
             "> `tool-match` compares observed tools to `expected_tools`, which are "
             "MCP names — a Bash arm scores 0 by construction. Grade these arms on "

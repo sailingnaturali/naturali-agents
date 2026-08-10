@@ -11,7 +11,7 @@
   {
     "id": "battery",
     "category": "shaped-tool",
-    "prompt": "How's the house battery doing?",
+    "prompt": "How's the battery doing?",
     "expected_tools": ["mcp__signalk__battery_state"],
     "truth_path": "electrical.batteries.house.capacity.stateOfCharge",
     "truth_unit": "ratio->percent",

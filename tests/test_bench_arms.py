@@ -106,3 +106,33 @@ def test_cost_is_differenced_not_cumulative():
 
     assert [round(r.cost_usd, 2) for r in results] == [0.05, 0.06, 0.09]
     assert round(sum(r.cost_usd for r in results), 2) == 0.20   # == session total
+
+
+def test_scorecard_carries_both_per_turn_and_per_session_views():
+    """Per-turn and per-session answer different questions and must both
+    survive into the scorecard: a resident tool schema is billed on every turn,
+    so its true weight only shows in the session totals."""
+    results = [
+        _result({"input_tokens": 10, "output_tokens": 100,
+                 "cache_read_input_tokens": 1000, "cache_creation_input_tokens": 40}),
+        _result({"input_tokens": 30, "output_tokens": 200,
+                 "cache_read_input_tokens": 3000, "cache_creation_input_tokens": 60}),
+    ]
+    results[0].cost_usd, results[0].cost_usd_session = 0.05, 0.05
+    results[1].cost_usd, results[1].cost_usd_session = 0.06, 0.11
+
+    card = build_scorecard(model="m", results=results, arm="cli")
+
+    # per turn
+    assert card.tokens_in_mean == 20.0
+    assert card.cache_read_mean == 2000.0
+    assert card.cache_write_mean == 50.0
+    assert card.cost_usd_mean == pytest.approx(0.055)
+    # per session
+    assert card.tokens_in_total == 40
+    assert card.tokens_out_total == 300
+    assert card.cache_read_total == 4000
+    assert card.cache_write_total == 100
+    assert card.cost_usd_session == pytest.approx(0.11)
+    # the two cost views must reconcile: differenced turns sum to the session
+    assert card.cost_usd_total == pytest.approx(card.cost_usd_session)
