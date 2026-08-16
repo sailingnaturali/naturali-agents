@@ -82,14 +82,21 @@ vessel-local time — never a raw UTC timestamp.
 
 ## Common system SignalK paths
 
-- `electrical.batteries.<bank>.{voltage,current,stateOfCharge,temperature}` — battery banks (e.g. `house`, `start`)
-- `tanks.fuel.0.currentLevel`, `tanks.freshWater.0.currentLevel`, `tanks.blackWater.0.currentLevel` — tank levels (ratio 0..1; report the `display`)
-- `environment.inside.{temperature,relativeHumidity}` — cabin/engine-space climate, when published
-- `propulsion.0.{temperature,revolutions}` — main drive (observed via the bus gateway only; see below)
-- `environment.outside.pressure` — Pa (barometer; a drop >5 hPa/6h is worth flagging)
+- `electrical.batteries.<bank>.{voltage,current,stateOfCharge,temperature}` — battery banks. This boat publishes `house` (not `0`)
+- `tanks.freshWater.0.currentLevel`, `tanks.blackWater.0.currentLevel` — tank levels (ratio 0..1; report the `display`)
+- `propulsion.{port,starboard}.runTime` — the drives use **named** instance keys, not `propulsion.0`
 
 These are the paths the vessel may expose. If a path isn't published, say so plainly —
-do not invent a reading. Use `mcp_signalk_read_sensor` and report what's actually there.
+do not invent a reading. Use `mcp_signalk_read_sensor` and report what's actually there:
+it returns `available: false` when the vessel has no such sensor, which is different
+from a sensor that exists and is quiet. Never fill an absent reading with an estimate.
+
+**Not published on this boat** — `tanks.fuel.*`, `environment.inside.*`,
+`environment.outside.pressure` / `.temperature`, `propulsion.*.temperature` and
+`.revolutions`. There is no fuel-tank sender, no cabin climate sensor and no
+barometer, so there is no pressure trend to flag. The generated list is
+`vessel-knowledge-vault/absent-paths.md`
+(`infrastructure/scripts/audit-signalk-paths.py`).
 
 ## Safety-critical buses
 
