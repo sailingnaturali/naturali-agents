@@ -31,10 +31,9 @@ from poseidon import config, prompts
 NAVIGATOR_TOOLS = [
     "mcp__signalk", "mcp__weather", "mcp__currents", "mcp__pilotbook",
     "mcp__colregs", "mcp__club-moorage",
-    # Persistent memory (Mnemosyne, ADR 0003) — scoped to read/write + crew-fact
-    # triples rather than the full 28-tool surface, to keep the prompt lean.
-    "mcp__memory__mnemosyne_recall", "mcp__memory__mnemosyne_remember",
-    "mcp__memory__mnemosyne_triple_query", "mcp__memory__mnemosyne_triple_add",
+    # Mnemosyne (ADR 0003) removed 2026-08-23 — ADR 0008. Deployed 2026-06-22 and
+    # never adopted: 1 memory, 0 triples, last write 2026-06-22, zero calls in the
+    # Poseidon log. It cost 4 tool slots in every Navigator prompt and bought nothing.
     "mcp__mutes__set_alert_mute",
     "Agent",  # delegation to Engineer/Logbook subagents
 ]

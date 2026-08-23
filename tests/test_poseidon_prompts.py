@@ -110,9 +110,11 @@ def test_crew_options_constructs_with_two_subagents():
     assert isinstance(opts.mcp_servers, dict)
     expected_servers = {
         "signalk", "logbook", "currents", "weather",
-        "pilotbook", "colregs", "vessel-knowledge", "club-moorage", "memory",
+        "pilotbook", "colregs", "vessel-knowledge", "club-moorage",
         "mutes",  # in-process SDK server (set_alert_mute voice tool)
     }
+    # "memory" (Mnemosyne, ADR 0003) retired 2026-08-23 — see ADR 0008.
+    assert "memory" not in opts.mcp_servers
     assert expected_servers == set(opts.mcp_servers.keys())
     # Soft scoping: no global deny, else it strips the same tools from the
     # Engineer/Logbook subagents (a global --disallowedTools can't be re-granted).
